@@ -33,7 +33,7 @@ do_write_csv_file   = False
 
 ## TODO list of pictures:
 ## Für jedes Bild soll ein Objekt (iS eines -> data members) angelegt werden, das in einer Liste landet.
-## Listen von Data member kann man gut sortieren:
+## Listen von Data member kann man auch gut sortieren:
 ##   http://stackoverflow.com/questions/403421/how-to-sort-a-list-of-objects-in-python-based-on-an-attribute-of-the-objects
 ## TODO dummy Bilder für die fehlenden Bilder erzeugen:
 ## Geht mit pil
