@@ -7,8 +7,8 @@
 #
 # Version um:
 # 1. die Morgenphotos umzubenennen: YYYY_MM_DD_HH_mm_SS_IMGxxxx.jpg
-# 2. Belichtungszeit, Blende und ISO zu extrahieren
-# 2. CSV File zu erstellen mit fn, Uhrzeit, t, F und ISO
+# 2. Belichtungszeit, FNumber und ISOSpeed zu extrahieren
+# 2. CSV File zu erstellen mit fn, Uhrzeit, ExposureTime, F und ISOSpeed
 #
 #
 # Output:
@@ -63,17 +63,30 @@ def usage(exit_status):
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass():
     def __init__(self, datum):
-        self.datum    = datum
-        self.date     = ''
-        self.fn       = ''
-        self.path_fn  = ''
-        self.Blende   = ''
-        self.t        = ''
-        self.ISO      = ''
-        self.av_gray  = ''
+        self.datum        = datum
+        self.date         = ''
+        self.Manufacturer = 'rh'
+        self.Model        = ''
+        self.date         = ''
+        self.fn           = ''
+        self.path_fn      = ''
+        self.FNumber      = ''
+        self.ExposureTime = ''
+        self.ISOSpeed     = ''
+        self.av_gray      = ''
 
     def __repr__(self):
-        return '"%s","%s","%s","%s","%s","%s","%s","%s"' % (self.datum, self.date, self.fn, self.path_fn, self.Blende, self.t, self.ISO, self.av_gray)
+        return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
+        self.datum , \
+        self.Manufacturer , \
+        self.Model , \
+        self.date , \
+        self.fn , \
+        self.path_fn , \
+        self.FNumber , \
+        self.ExposureTime , \
+        self.ISOSpeed , \
+        self.av_gray )
 
 
 def make_list_of_pict():
@@ -99,10 +112,8 @@ def print_list_of_pict():
 
 def print_list_of_missing_pict():
     for pict in list_of_pict:
-        if pict.date == '*':
+        if pict.Manufacturer == 'rh':
             print(pict)
-
-
 
 def calc_average_graylevel(fn):
     image = Image.open(fn).convert('L')
@@ -160,7 +171,7 @@ if __name__ == '__main__':
     # list_of_pict = make_list_of_pict()
     make_list_of_pict()
     for pict in list_of_pict:
-        pict.date = '*'
+        pict.Manufacturer = 'rh'
     #     print pict.datum , pict.date
     #
     # print '########################'
@@ -198,8 +209,8 @@ if __name__ == '__main__':
             new_f_name = '*'
             new_path_f_name = '*'
 
-            Manufacturer = 'Manufacturer?'
-            Model = 'Model?'
+            Manufacturer = 'Manufacturer_?'
+            Model = 'Model_?'
             date_time_str = '0'
             FNumber = '0'
             ExposureTime = '0'
@@ -247,7 +258,6 @@ if __name__ == '__main__':
                     ISOSpeed = data[key].printable
                     print 'ISOSpeed =', ISOSpeed
 
-
                 if key.find('DateTimeOriginal') >= 0:
                     date_time_str = data[key].printable
                     hhmm_prefix = date_time_str[11:13] + date_time_str[14:16]
@@ -264,16 +274,26 @@ if __name__ == '__main__':
 
                     # dict_of_pict = {}
 
-            # average_gray = calc_average_graylevel(path_f_name)
-            average_gray = 99
+            # av_gray = calc_average_graylevel(path_f_name)
+            av_gray = 99
 
             new_path_f_name = os.path.join(root, new_f_name)
             batch_str = 'mv %s %s ' % (path_f_name, new_path_f_name)
             # f_name = basename(path_f_name)
 
-            dict_of_pict[Y_M_D_prefix].date    = Y_M_D_prefix
-            dict_of_pict[Y_M_D_prefix].fn      = new_f_name
-            dict_of_pict[Y_M_D_prefix].av_gray = average_gray
+            pict = dict_of_pict[Y_M_D_prefix]
+
+            # pict.datum    = datum
+            pict.date     = Y_M_D_prefix
+            pict.fn       = new_f_name
+            pict.Manufacturer = Manufacturer
+            pict.Model    = Model
+            pict.fn       = new_f_name
+            pict.path_fn  = new_path_f_name
+            pict.FNumber  = FNumber
+            pict.ExposureTime = ExposureTime
+            pict.ISOSpeed = ISOSpeed
+            pict.av_gray  = av_gray
 
             if do_write_files:
                 batch_file.write(batch_str + '\n')
@@ -309,7 +329,7 @@ if __name__ == '__main__':
             csv_str += '>' + sep + FNumber + sep + FN_2 + sep
             csv_str += '{:2.5f}'.format(ExposureTime_float) + sep + ISOSpeed + sep
             csv_str += '{:06.2f}'.format(FN_2_div_t) + sep + '{:.0f}'.format(FN_2_div_t_times_ISO) + sep
-            csv_str += '{:.0f}'.format(average_gray) + sep + '\n'
+            csv_str += '{:.0f}'.format(av_gray) + sep + '\n'
             print '>>>>',  csv_str
 
             if do_write_files:
