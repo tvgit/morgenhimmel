@@ -16,14 +16,13 @@
 #
 # https://pypi.python.org/pypi/ExifRead
 #
-import csv
-import sys
-import exifread
-from datetime import datetime, time
-import datetime
+import getopt
 import os
-import pprint
 import re
+import sys
+import datetime
+
+import exifread
 # https://books.google.de/books?id=YRHSCgAAQBAJ&pg=PA96&lpg=PA96&dq=pil+average+grayscale&source=bl&ots=tsJ8nbYvua&sig=OHKPOAlTMV08S-p5jS-t_RacTS0&hl=de&sa=X&ved=0ahUKEwjrxo2I2JHMAhWEJhoKHY_rB0cQ6AEIRzAE#v=onepage&q=pil%20average%20grayscale&f=false
 import numpy as np
 from PIL import Image
@@ -35,8 +34,12 @@ do_write_csv_file   = False
 ## Für jedes Bild soll ein Objekt (iS eines -> data members) angelegt werden, das in einer Liste landet.
 ## Listen von Data member kann man auch gut sortieren:
 ##   http://stackoverflow.com/questions/403421/how-to-sort-a-list-of-objects-in-python-based-on-an-attribute-of-the-objects
+## Dicts und Listen von DIcts kann man auch gut sortieren:
+## https://wiki.python.org/moin/HowTo/Sorting  -> 'itemgetter' !!
+##
 ## TODO dummy Bilder für die fehlenden Bilder erzeugen:
 ## Geht mit pil
+## TODO mit pickle die Liste der pict sichern:
 
 dict_of_pict = {}
 list_of_pict = []
@@ -50,12 +53,74 @@ def usage(exit_status):
     msg += '\n'
     msg += 'Options:\n'
     msg += '  -v --verbose  verbose.\n'
+    msg += '  -a --avrge    calc average gray value.\n'
     msg += '  -d --dir=     directory.\n'
     msg += '  -q --quiet    quiet (default)\n'
     msg += '\n'
     print msg
     if exit_status:
         sys.exit(exit_status)
+
+def get_opts_args():
+    quiet = False
+    root_dir = ''
+    do_calc_average     = False
+    do_write_csv_file   = False
+    do_write_batch_file = False
+
+    try:
+        #  >:< option requires argument
+        opts, args = getopt.getopt(sys.argv[1:], "acbd:hvq", ["--avrge", "csv", "batch", "dir=", "verbose", "quiet"])
+    except getopt.GetoptError:
+        usage(2)
+    if not args:
+        usage(0)
+
+    for o, a in opts:
+        if o in ("-a", "--avrge"):
+            do_calc_average = True
+        if o in ("-c", "--csv"):
+            do_write_csv_file = True
+        if o in ("-b", "--batch"):
+            do_write_batch_file = True
+        if o in ("-d", "--dir"):
+            root_dir = a
+        if o in ("-w", "--write_files"):
+            do_write_files = True
+        if o in ("-h", "--help"):
+            usage(0)
+
+    if not root_dir:
+        root_dir = '.'
+        root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
+        root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle_001'
+
+    if not quiet:
+        print 'root_dir: >' + root_dir + '<'
+    if not os.path.isdir(root_dir):
+        print 'Directory >' + root_dir + '< does not exist.'
+        sys.exit(2)
+
+    if do_write_batch_file:
+        try:
+            batch_f_name = 'rename_photos.bat'
+            batch_f_name = os.path.join(root_dir, batch_f_name)
+            batch_file = open(batch_f_name, 'wb')
+        except:
+            print "'%s' is unwritable\n" % batch_f_name
+            sys.exit(2)
+
+    if do_write_csv_file:
+        try:
+            csv_f_name = 'photos_values.csv'
+            csv_f_name = os.path.join(root_dir, csv_f_name)
+            csv_file = open(csv_f_name, 'wb')
+        except:
+            print "'%s' is unwritable\n" % csv_f_name
+            sys.exit(2)
+
+    return root_dir, quiet, do_calc_average, do_write_batch_file, do_write_csv_file
+
 
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass():
@@ -87,11 +152,11 @@ class PictClass():
 
 def make_list_of_pict():
     # >list_of_pict< and >dict_of_pict< are global
-    date1 = '2013_04_07'
-    date2 = '2014_08_16'
-    start = datetime.datetime.strptime(date1, '%Y_%m_%d')
-    end   = datetime.datetime.strptime(date2, '%Y_%m_%d')
-    step = datetime.timedelta(days=1)
+    date1   = '2013_04_07'
+    date2   = '2014_08_16'
+    start   = datetime.datetime.strptime(date1, '%Y_%m_%d')
+    end     = datetime.datetime.strptime(date2, '%Y_%m_%d')
+    step    = datetime.timedelta(days=1)
     act_day = start
     while act_day <= end:
         act_day_str = act_day.date().strftime('%Y_%m_%d')  # Formatieren
@@ -118,67 +183,11 @@ def calc_average_graylevel(fn):
 #======================================================================
 
 if __name__ == '__main__':
-    import os
-    import sys
-    import getopt
-    from os.path import basename
-    from os.path import splitext
 
-    stop_tag = 'UNDEF'
-    quiet = True
-    quiet = False
-    root_dir = ''
-
-    # parse command line options/arguments
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "d:hvrpq", ["dir=", "verbose", "nopicasa", "quiet"])
-    except getopt.GetoptError:
-        usage(2)
-    if not args:
-        usage(0)
-
-    for o, a in opts:
-        if o in ("-d", "--dir"):
-            root_dir = a
-        if o in ("-w", "--write_files"):
-            do_write_files = True
-        if o in ("-h", "--help"):
-            usage(0)
-
-    if not root_dir:
-        root_dir = '.'
-        root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
-        root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle_001'
-
-    if not quiet:
-        print 'root_dir: >' + root_dir + '<'
-    if not os.path.isdir(root_dir):
-        print 'Directory >' + root_dir +'< does not exist.'
-        sys.exit(2)
-
-    csv_f_name   = 'photos_values.csv'
-    csv_f_name   = os.path.join(root_dir, csv_f_name)
+    root_dir, quiet, do_calc_average, do_write_batch_file, do_write_csv_file = get_opts_args()
 
     make_list_of_pict()
-
-    if do_write_batch_file:
-        try:
-            batch_f_name = 'rename_photos.bat'
-            batch_f_name = os.path.join(root_dir, batch_f_name)
-            batch_file=open(batch_f_name, 'wb')
-        except:
-            print "'%s' is unwritable\n"%batch_f_name
-            sys.exit(2)
-
-    if do_write_csv_file:
-        try:
-            csv_f_name = 'photos_values.csv'
-            csv_f_name = os.path.join(root_dir, csv_f_name)
-            csv_file=open(csv_f_name, 'wb')
-        except:
-            print "'%s' is unwritable\n"%csv_f_name
-            sys.exit(2)
-
+    stop_tag = 'UNDEF'
 
     cnt_jpg_files = 0
     reg_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
@@ -242,7 +251,7 @@ if __name__ == '__main__':
                         z = ExposureTime[:pos_slash]
                         n = ExposureTime[pos_slash + 1:]
                         ExposureTime_float = float(z)/float(n)
-                    print '= ', ExposureTime_float, ' (', type (ExposureTime_float)
+                    print '= ', ExposureTime_float
 
                 if key.find('ISOSpeed') >= 0:
                     ISOSpeed = data[key].printable
@@ -261,15 +270,16 @@ if __name__ == '__main__':
                     else:
                         new_f_name = YMDHm_prefix + '_' + f_name
 
-            # av_gray = calc_average_graylevel(path_f_name)
-            av_gray = 99
+            if do_calc_average:
+                av_gray = calc_average_graylevel(path_f_name)
+            else:
+                av_gray = 99
 
             new_path_f_name = os.path.join(root, new_f_name)
             batch_str = 'mv %s %s ' % (path_f_name, new_path_f_name)
             # f_name = basename(path_f_name)
 
             pict = dict_of_pict[Y_M_D_prefix]
-
             # pict.datum    = datum
             pict.date     = Y_M_D_prefix
             pict.fn       = new_f_name
@@ -312,15 +322,19 @@ if __name__ == '__main__':
 
             # csv_str =  str(cnt_jpg_files) + sep + new_f_name + sep + Model + sep
             csv_str =  new_f_name + sep + Model + sep
-            csv_str += FNumber + sep + ExposureTime + sep + ISOSpeed + sep
+            csv_str += FNumber + sep + '{:2.5f}'.format(ExposureTime_float)+ sep + ISOSpeed + sep
+            csv_str += '{:.0f}'.format(av_gray) + sep
             csv_str += '>' + sep + FNumber + sep + FN_2 + sep
-            csv_str += '{:2.5f}'.format(ExposureTime_float) + sep + ISOSpeed + sep
+            csv_str += ExposureTime + sep + '{:2.5f}'.format(ExposureTime_float) + sep + ISOSpeed + sep
             csv_str += '{:06.2f}'.format(FN_2_div_t) + sep + '{:.0f}'.format(FN_2_div_t_times_ISO) + sep
             csv_str += '{:.0f}'.format(av_gray) + sep + '\n'
             print '>>>>',  csv_str
 
             if do_write_csv_file:
-                csv_file.write (csv_str)
+                if cnt_jpg_files == 1:
+                    csv_header = 'fn; Model; FNumber; ExpoTime, ISOSPeed, AverageGray'
+                    csv_file.write(csv_header)
+                csv_file.write(csv_str)
 
     print_list_of_pict()
     print '\n' * 3
