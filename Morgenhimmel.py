@@ -16,20 +16,6 @@
 #
 # https://pypi.python.org/pypi/ExifRead
 #
-import getopt
-import os
-import re
-import sys
-import datetime
-
-import exifread
-# https://books.google.de/books?id=YRHSCgAAQBAJ&pg=PA96&lpg=PA96&dq=pil+average+grayscale&source=bl&ots=tsJ8nbYvua&sig=OHKPOAlTMV08S-p5jS-t_RacTS0&hl=de&sa=X&ved=0ahUKEwjrxo2I2JHMAhWEJhoKHY_rB0cQ6AEIRzAE#v=onepage&q=pil%20average%20grayscale&f=false
-import numpy as np
-from PIL import Image
-
-do_write_batch_file = False
-do_write_csv_file   = False
-
 ## TODO list of pictures:
 ## Für jedes Bild soll ein Objekt (iS eines -> data members) angelegt werden, das in einer Liste landet.
 ## Listen von Data member kann man auch gut sortieren:
@@ -40,6 +26,23 @@ do_write_csv_file   = False
 ## TODO dummy Bilder für die fehlenden Bilder erzeugen:
 ## Geht mit pil
 ## TODO mit pickle die Liste der pict sichern:
+
+import datetime
+import getopt
+import os
+import re
+import sys
+from operator import itemgetter, attrgetter, methodcaller
+
+import exifread
+# https://books.google.de/books?id=YRHSCgAAQBAJ&pg=PA96&lpg=PA96&dq=pil+average+grayscale&source=bl&ots=tsJ8nbYvua&sig=OHKPOAlTMV08S-p5jS-t_RacTS0&hl=de&sa=X&ved=0ahUKEwjrxo2I2JHMAhWEJhoKHY_rB0cQ6AEIRzAE#v=onepage&q=pil%20average%20grayscale&f=false
+import numpy as np
+from PIL import Image
+
+do_write_batch_file = False
+do_calc_average     = False
+do_write_batch_file = True
+do_write_csv_file   = False
 
 dict_of_pict = {}
 list_of_pict = []
@@ -64,9 +67,13 @@ def usage(exit_status):
 def get_opts_args():
     quiet = False
     root_dir = ''
-    do_calc_average     = False
-    do_write_csv_file   = False
-    do_write_batch_file = False
+    global do_calc_average
+    global do_write_csv_file
+    global csv_file
+    global csv_f_name
+    global do_write_batch_file
+    global batch_file
+    global batch_f_name
 
     try:
         #  >:< option requires argument
@@ -79,10 +86,10 @@ def get_opts_args():
     for o, a in opts:
         if o in ("-a", "--avrge"):
             do_calc_average = True
-        if o in ("-c", "--csv"):
-            do_write_csv_file = True
         if o in ("-b", "--batch"):
             do_write_batch_file = True
+        if o in ("-c", "--csv"):
+            do_write_csv_file = True
         if o in ("-d", "--dir"):
             root_dir = a
         if o in ("-w", "--write_files"):
@@ -128,7 +135,7 @@ class PictClass():
         self.datum        = datum
         self.date         = ''
         self.Make         = 'rh'
-        self.Model        = ''
+        self.Model        = 'rh'
         self.date         = ''
         self.fn           = ''
         self.path_fn      = ''
@@ -152,20 +159,27 @@ class PictClass():
 
 def make_list_of_pict():
     # >list_of_pict< and >dict_of_pict< are global
+    global cnt_days
     date1   = '2013_04_07'
     date2   = '2014_08_16'
     start   = datetime.datetime.strptime(date1, '%Y_%m_%d')
     end     = datetime.datetime.strptime(date2, '%Y_%m_%d')
     step    = datetime.timedelta(days=1)
+    cnt_days= 0
     act_day = start
     while act_day <= end:
         act_day_str = act_day.date().strftime('%Y_%m_%d')  # Formatieren
         pict = PictClass(act_day_str)
         list_of_pict.append(pict)
         dict_of_pict.update({act_day_str : pict})
-        act_day += step
+        act_day  += step
+        cnt_days +=  1
+
 
 def print_list_of_pict():
+    # sorted(pict, key=attrgetter('grade', 'age'))
+    # list_of_pict.sort(key=lambda c: c.Model)
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
     for pict in list_of_pict:
         # pprint.pprint(pict)
         print(pict)
@@ -287,6 +301,7 @@ if __name__ == '__main__':
             pict.Model    = Model
             pict.fn       = new_f_name
             pict.path_fn  = new_path_f_name
+            pict.path_fn  = ''
             pict.FNumber  = FNumber
             pict.ExposureTime = ExposureTime
             pict.ISOSpeed = ISOSpeed
@@ -346,4 +361,6 @@ if __name__ == '__main__':
     if do_write_csv_file:
         csv_file.close()
 
-    print "\n\n>", cnt_jpg_files, "files in directory \n"
+    print "\n\n"
+    print ">", cnt_days, "days in total"
+    print ">", cnt_jpg_files, "files in directory \n"
