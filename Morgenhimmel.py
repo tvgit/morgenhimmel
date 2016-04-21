@@ -8,7 +8,8 @@
 # Version um:
 # 1. die Morgenphotos umzubenennen: YYYY_MM_DD_HH_mm_SS_IMGxxxx.jpg
 # 2. Belichtungszeit, FNumber und ISOSpeed zu extrahieren
-# 2. CSV File zu erstellen mit fn, Uhrzeit, ExposureTime, F und ISOSpeed
+# 3. CSV File zu erstellen mit fn, Uhrzeit, ExpsTime, F und ISOSpeed
+# 4. Fehlende Bilder ersetzen (406 = 2 * 7 * 29)
 #
 # Output:
 # 1. neuen Filenamen samt Path 
@@ -39,10 +40,10 @@ import exifread
 import numpy as np
 from PIL import Image
 
-do_write_batch_file = False
-do_calc_average     = False
-do_write_batch_file = True
-do_write_csv_file   = False
+do_calc_average    = False
+do_make_batch_file = False
+do_make_csv_file   = False
+do_make_csv_file   = True
 
 dict_of_pict = {}
 list_of_pict = []
@@ -68,10 +69,10 @@ def get_opts_args():
     quiet = False
     root_dir = ''
     global do_calc_average
-    global do_write_csv_file
+    global do_make_csv_file
     global csv_file
     global csv_f_name
-    global do_write_batch_file
+    global do_make_batch_file
     global batch_file
     global batch_f_name
 
@@ -87,9 +88,9 @@ def get_opts_args():
         if o in ("-a", "--avrge"):
             do_calc_average = True
         if o in ("-b", "--batch"):
-            do_write_batch_file = True
+            do_make_batch_file = True
         if o in ("-c", "--csv"):
-            do_write_csv_file = True
+            do_make_csv_file = True
         if o in ("-d", "--dir"):
             root_dir = a
         if o in ("-w", "--write_files"):
@@ -108,7 +109,7 @@ def get_opts_args():
         print 'Directory >' + root_dir + '< does not exist.'
         sys.exit(2)
 
-    if do_write_batch_file:
+    if do_make_batch_file:
         try:
             batch_f_name = 'rename_photos.bat'
             batch_f_name = os.path.join(root_dir, batch_f_name)
@@ -117,7 +118,7 @@ def get_opts_args():
             print "'%s' is unwritable\n" % batch_f_name
             sys.exit(2)
 
-    if do_write_csv_file:
+    if do_make_csv_file:
         try:
             csv_f_name = 'photos_values.csv'
             csv_f_name = os.path.join(root_dir, csv_f_name)
@@ -126,38 +127,64 @@ def get_opts_args():
             print "'%s' is unwritable\n" % csv_f_name
             sys.exit(2)
 
-    return root_dir, quiet, do_calc_average, do_write_batch_file, do_write_csv_file
+    return root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file
 
 
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass():
     def __init__(self, datum):
-        self.datum        = datum
-        self.date         = ''
-        self.Make         = 'rh'
-        self.Model        = 'rh'
-        self.date         = ''
-        self.fn           = ''
-        self.path_fn      = ''
-        self.FNumber      = ''
-        self.ExposureTime = ''
-        self.ISOSpeed     = ''
-        self.av_gray      = ''
+        self.datum       = datum
+        self.date        = ''
+        self.Make        = 'rh'
+        self.Model       = 'rh'
+        self.date        = ''
+        self.fn          = ''
+        self.fn_old      = ''
+        self.path_fn     = ''
+        self.FNumber_str = ''
+        self.FNumber     = ''
+        self.ExpsTime    = ''
+        self.ISOSpeed    = ''
+        self.av_gray     = '99'
 
     def __repr__(self):
-        return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
+        return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
         self.datum , \
         self.Make , \
         self.Model , \
         self.date , \
         self.fn , \
+        self.fn_old , \
         self.path_fn , \
+        self.FNumber_str , \
         self.FNumber , \
-        self.ExposureTime , \
+        self.ExpsTime , \
         self.ISOSpeed , \
         self.av_gray )
 
-def make_list_of_pict():
+def print_list_of_pict():
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    cnt_files = 0
+    for pict in list_of_pict:
+        # pprint.pprint(pict)
+        print(pict)
+        cnt_files += 1
+    return cnt_files
+
+def print_list_of_missing_pict():
+    cnt_files = 0
+    for pict in list_of_pict:
+        if pict.Make == 'rh':
+            print(pict)
+            cnt_files += 1
+    return cnt_files
+
+def calc_average_graylevel(fn):
+    image = Image.open(fn).convert('L')
+    im_np_array = np.array(image)
+    return np.average(im_np_array)
+
+def initialize_list_of_pict():
     # >list_of_pict< and >dict_of_pict< are global
     global cnt_days
     date1   = '2013_04_07'
@@ -175,44 +202,16 @@ def make_list_of_pict():
         act_day  += step
         cnt_days +=  1
 
-
-def print_list_of_pict():
-    # sorted(pict, key=attrgetter('grade', 'age'))
-    # list_of_pict.sort(key=lambda c: c.Model)
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
-    for pict in list_of_pict:
-        # pprint.pprint(pict)
-        print(pict)
-
-def print_list_of_missing_pict():
-    for pict in list_of_pict:
-        if pict.Make == 'rh':
-            print(pict)
-
-def calc_average_graylevel(fn):
-    image = Image.open(fn).convert('L')
-    im_np_array = np.array(image)
-    return np.average(im_np_array)
-
-#======================================================================
-
-if __name__ == '__main__':
-
-    root_dir, quiet, do_calc_average, do_write_batch_file, do_write_csv_file = get_opts_args()
-
-    make_list_of_pict()
+def make_list_of_pict():
+    # >list_of_pict< and >dict_of_pict< are global
     stop_tag = 'UNDEF'
-
-    cnt_jpg_files = 0
     reg_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
-
-    root, dirs, files = os.walk(root_dir).next()
-
-    for f_name in files:
+    cnt_jpg_files = 0
+    root, dirs, files = os.walk(root_dir).next()  # only first level
+    for f_name in files:  # only files
         path_f_name = os.path.join(root, f_name)
         ext = os.path.splitext(path_f_name)[-1].lower()
         if ext == ".jpg":
-
             cnt_jpg_files += 1
             print '\n', '{:4d}'.format(cnt_jpg_files), ': ', f_name
 
@@ -227,20 +226,20 @@ if __name__ == '__main__':
             ISOSpeed = '0'
 
             try:
-                im_file=open(path_f_name, 'rb')
+                im_file = open(path_f_name, 'rb')
             except:
-                print "'%s' is unreadable\n"%path_f_name
+                print "'%s' is unreadable\n" % path_f_name
                 continue
             # get EXif tags:
-            data = exifread.process_file(im_file, details=False, stop_tag='DateTimeOriginal')
+            data = exifread.process_file(im_file, details=False)
             im_file.close()
 
             for key in data.keys():
-                if key.find('Item') >= 0:
-                    Item = data[key].printable
+                if key.find('Item') >= 0:  # dummy for pattern
+                    Item = data[key].printable  # dummy for pattern
 
                 if key.find('Make') >= 0:
-                    Make = data[key].printable # Manufacturer
+                    Make = data[key].printable  # Manufacturer
                     print 'Make =', Make
 
                 if key.find('Model') >= 0:
@@ -248,13 +247,13 @@ if __name__ == '__main__':
                     print 'Model =', Model
 
                 if key.find('FNumber') >= 0:
-                    FNumber = data[key].printable
-                    print 'FNumber =' , FNumber
-                    pos_slash = FNumber.find('/')
+                    FNumber_str = data[key].printable
+                    print 'FNumber =', FNumber_str
+                    pos_slash = FNumber_str.find('/')
                     if pos_slash > 0:
-                        counter     = FNumber[:pos_slash]
-                        denominator = FNumber[pos_slash + 1:]
-                        FNumber     = str (float(counter)/float(denominator))
+                        counter = FNumber_str[:pos_slash]
+                        denominator = FNumber_str[pos_slash + 1:]
+                        FNumber = str(float(counter) / float(denominator))
                         print 'FNumber =', FNumber
 
                 if key.find('ExposureTime') >= 0:
@@ -264,7 +263,7 @@ if __name__ == '__main__':
                     if pos_slash > 0:
                         z = ExposureTime[:pos_slash]
                         n = ExposureTime[pos_slash + 1:]
-                        ExposureTime_float = float(z)/float(n)
+                        ExposureTime_float = float(z) / float(n)
                     print '= ', ExposureTime_float
 
                 if key.find('ISOSpeed') >= 0:
@@ -277,90 +276,88 @@ if __name__ == '__main__':
                     hhmm_prefix = hhmm_prefix.replace(' ', '0', -1)
 
                     Y_M_D_prefix = date_time_str[0:4] + '_' + date_time_str[5:7] + '_' + date_time_str[8:10]
-                    YMDHm_prefix = Y_M_D_prefix  + '_' + hhmm_prefix
+                    YMDHm_prefix = Y_M_D_prefix + '_' + hhmm_prefix
                     if not quiet: print Y_M_D_prefix, YMDHm_prefix
                     if re.match(reg_hhmm, f_name):  # re.match == regex am Stringanfang?
                         new_f_name = YMDHm_prefix + '_' + f_name[5:]
                     else:
                         new_f_name = YMDHm_prefix + '_' + f_name
 
-            if do_calc_average:
-                av_gray = calc_average_graylevel(path_f_name)
-            else:
-                av_gray = 99
-
-            new_path_f_name = os.path.join(root, new_f_name)
-            batch_str = 'mv %s %s ' % (path_f_name, new_path_f_name)
             # f_name = basename(path_f_name)
 
             pict = dict_of_pict[Y_M_D_prefix]
             # pict.datum    = datum
             pict.date     = Y_M_D_prefix
-            pict.fn       = new_f_name
             pict.Make     = Make
             pict.Model    = Model
             pict.fn       = new_f_name
-            pict.path_fn  = new_path_f_name
+            pict.fn_old   = f_name
+            # pict.path_fn = new_path_f_name
             pict.path_fn  = ''
             pict.FNumber  = FNumber
-            pict.ExposureTime = ExposureTime
+            pict.ExpsTime = ExposureTime_float
             pict.ISOSpeed = ISOSpeed
-            pict.av_gray  = av_gray
+            pict.av_gray  = 99
 
-            if do_write_batch_file:
-                batch_file.write(batch_str + '\n')
+def make_rename_batch_file():
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    for pict in list_of_pict:
+        # new_path_f_name = os.path.join(root, pict.new_f_name)
+        if pict.Make != 'rh':
+            batch_str = 'mv %s %s ' % (pict.fn_old , pict.fn)
+            batch_file.write(batch_str + '\n')
 
-            try:
-                print '1:[ ', FNumber, ExposureTime, ISOSpeed, '] ',
-                try:
-                    FN_2 = str((float(FNumber) * float(FNumber)))
-                    print '2:[ ', FNumber, FN_2 , ExposureTime, ISOSpeed, ']' ,
-                    # FN_2_div_t = float (FN_2) / float (ExposureTime)
-                    FN_2_div_t = float (FN_2) / ExposureTime_float
-                    # print '[ ', float (FN_2) / float (ExposureTime), ']' ,
-                    print '3:[ ', '{:06.2f}'.format(FN_2_div_t), ']' ,
-                    FN_2_div_t_times_ISO = FN_2_div_t / float (ISOSpeed)
-                    print '4:[ ', '{:.0f}'.format(FN_2_div_t_times_ISO), ']' ,
-                except:
-                    FN_2                 = '9999'
-                    FN_2_div_t           = '9999'
-                    FN_2_div_t_times_ISO = '9999'
-                    print '[?]'
-                finally:
-                    print
-            except:
-                pass
-            finally:
-                pass
+def make_csv_file():
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    cnt_jpg_files = 0
+    sep = ' ; '
+    for pict in list_of_pict:
+        if cnt_jpg_files == 1:
+            csv_header = 'Datum; fn ; Model; FNumber_str; FNumber; ExpoTime, ISOSpeed, AverageGray'
+            csv_file.write(csv_header)
+        csv_str  = pict.datum + sep + pict.fn + sep + pict.Model + sep
+        csv_str += pict.FNumber_str + sep + pict.FNumber + sep
+        # csv_str += '{:06.2f}'.format(pict.ExpsTime) + sep
+        csv_str += str(pict.ExpsTime) + sep
+        csv_str += pict.ISOSpeed + sep
+        csv_str += str(pict.av_gray) + sep
+        csv_str += '\n'
+        csv_file.write(csv_str)
+        cnt_jpg_files += 1
+        print '>>>>', csv_str
 
-            sep = ' ; '
+#======================================================================
 
-            # csv_str =  str(cnt_jpg_files) + sep + new_f_name + sep + Model + sep
-            csv_str =  new_f_name + sep + Model + sep
-            csv_str += FNumber + sep + '{:2.5f}'.format(ExposureTime_float)+ sep + ISOSpeed + sep
-            csv_str += '{:.0f}'.format(av_gray) + sep
-            csv_str += '>' + sep + FNumber + sep + FN_2 + sep
-            csv_str += ExposureTime + sep + '{:2.5f}'.format(ExposureTime_float) + sep + ISOSpeed + sep
-            csv_str += '{:06.2f}'.format(FN_2_div_t) + sep + '{:.0f}'.format(FN_2_div_t_times_ISO) + sep
-            csv_str += '{:.0f}'.format(av_gray) + sep + '\n'
-            print '>>>>',  csv_str
+if __name__ == '__main__':
 
-            if do_write_csv_file:
-                if cnt_jpg_files == 1:
-                    csv_header = 'fn; Model; FNumber; ExpoTime, ISOSPeed, AverageGray'
-                    csv_file.write(csv_header)
-                csv_file.write(csv_str)
+    root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file = get_opts_args()
+    initialize_list_of_pict()
 
-    print_list_of_pict()
-    print '\n' * 3
-    print_list_of_missing_pict()
+    # >list_of_pict< and >dict_of_pict< are global
+    make_list_of_pict()
 
-    if do_write_batch_file:
-        print "\n\n>" + batch_f_name + "< written. ", cnt_jpg_files, "files to rename\n"
-        batch_file.close()
-    if do_write_csv_file:
+    if do_make_batch_file:
+        make_rename_batch_file()
+
+    if do_calc_average:
+        av_gray = calc_average_graylevel(path_f_name)
+
+    if do_make_csv_file:
+        make_csv_file()
         csv_file.close()
+
+    print '\n' * 3
+
+    cnt_files = print_list_of_pict()
+    print '\n', '{:4d}'.format(cnt_files), ' vorhanden. '
+    cnt_files = print_list_of_missing_pict()
+    print '\n', '{:4d}'.format(cnt_files), ' fehlen. '
+
+
+    if do_make_batch_file:
+        print "\n\n>" + batch_f_name + "< written. ", cnt_files, "files to rename\n"
+        batch_file.close()
 
     print "\n\n"
     print ">", cnt_days, "days in total"
-    print ">", cnt_jpg_files, "files in directory \n"
+    print ">", cnt_files, "files in directory \n"
