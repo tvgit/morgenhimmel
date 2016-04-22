@@ -40,6 +40,7 @@ import exifread
 import numpy as np
 from PIL import Image
 
+do_calc_average    = True
 do_calc_average    = False
 do_make_batch_file = False
 do_make_csv_file   = False
@@ -179,11 +180,6 @@ def print_list_of_missing_pict():
             cnt_files += 1
     return cnt_files
 
-def calc_average_graylevel(fn):
-    image = Image.open(fn).convert('L')
-    im_np_array = np.array(image)
-    return np.average(im_np_array)
-
 def initialize_list_of_pict():
     # >list_of_pict< and >dict_of_pict< are global
     global cnt_days
@@ -206,6 +202,7 @@ def make_list_of_pict():
     # >list_of_pict< and >dict_of_pict< are global
     stop_tag = 'UNDEF'
     reg_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
+    # reg_YYYY_MM_DD_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
     cnt_jpg_files = 0
     root, dirs, files = os.walk(root_dir).next()  # only first level
     for f_name in files:  # only files
@@ -312,6 +309,7 @@ def make_csv_file():
     cnt_jpg_files = 0
     sep = ' ; '
     for pict in list_of_pict:
+        cnt_jpg_files += 1
         if cnt_jpg_files == 1:
             csv_header = 'Datum; fn ; Model; FNumber_str; FNumber; ExpoTime, ISOSpeed, AverageGray'
             csv_file.write(csv_header)
@@ -323,8 +321,16 @@ def make_csv_file():
         csv_str += str(pict.av_gray) + sep
         csv_str += '\n'
         csv_file.write(csv_str)
-        cnt_jpg_files += 1
         print '>>>>', csv_str
+
+def calc_average_graylevel():
+    print '>>>>>>>> calc_average_graylevel():'
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    for pict in list_of_pict:
+        image = Image.open(pict.fn).convert('L')
+        im_np_array = np.array(image)
+        pict.pict.av_gray = np.average(im_np_array)
+
 
 #======================================================================
 
@@ -340,7 +346,7 @@ if __name__ == '__main__':
         make_rename_batch_file()
 
     if do_calc_average:
-        av_gray = calc_average_graylevel(path_f_name)
+        av_gray = calc_average_graylevel()
 
     if do_make_csv_file:
         make_csv_file()
