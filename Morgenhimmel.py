@@ -386,18 +386,31 @@ def calc_model_type_picts():
             dict_model_cnt[pict.Model] = 1
         else:
             dict_model_cnt[pict.Model] = dict_model_cnt[pict.Model] + 1
-    for key in dict_model_cnt.keys():
-        print key, dict_model_cnt[key]
+    # for key in dict_model_cnt.keys():
+    #     print key, dict_model_cnt[key]
     # pprint.pprint (dict_model_cnt)
     return dict_model_cnt
 
-def split_and_combine_rgb_channels_():
-    rgbArray = np.zeros((512,512,3), 'uint8')
-    rgbArray[..., 0] = r*256
-    rgbArray[..., 1] = g*256
-    rgbArray[..., 2] = b*256
-    img = Image.fromarray(rgbArray)
-    img.save('myimg.jpeg')
+def split_and_combine_rgb_channels_(fn_img_new, fn_img_1, fn_img_2, fn_img_3):
+    im = Image.open(fn_img_1)
+    red, g, b = im.split()
+    im.close()
+    im = Image.open(fn_img_2)
+    r, green, b = im.split()
+    im.close()
+    im = Image.open(fn_img_3)
+    r, g, blue = im.split()
+    im.close()
+
+    img = Image.merge(“RGB”, (r, g, b))
+    img.save(fn_img_new)
+
+def make_new_images():
+    dict_model_cnt = calc_model_type_picts()
+    for key in dict_model_cnt.keys():
+        print key, dict_model_cnt[key]
+
+    split_and_combine_rgb_channels_(fn_img_new, fn_img_1, fn_img_2, fn_img_3)
 
 
 #======================================================================
@@ -432,6 +445,8 @@ if __name__ == '__main__':
     print ">", cnt_days, "days in total"
     print ">", cnt_existing_files, "files in directory \n"
     print ">", cnt_jpg_files, "jpg files in directory \n"
-    calc_model_type_picts()
+    dict_model_cnt = calc_model_type_picts()
+    for key in dict_model_cnt.keys():
+        print key, dict_model_cnt[key]
     print ">", cnt_missing_files,  "missing files in directory \n"
     # print ">", cnt_files, "files in directory \n"
