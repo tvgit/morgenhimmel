@@ -9,7 +9,7 @@
 # 1. die Morgenphotos umzubenennen: YYYY_MM_DD_HH_mm_SS_IMGxxxx.jpg
 # 2. Belichtungszeit, FNumber und ISOSpeed zu extrahieren
 # 3. CSV File zu erstellen mit fn, Uhrzeit, ExpsTime, F und ISOSpeed
-# 4. Fehlende Bilder ersetzen (406 = 2 * 7 * 29)
+# 4. Fehlende Bilder ersetzen (496 = 2**4  * 31)  # 497 möglich
 #
 # Output:
 # 1. neuen Filenamen samt Path 
@@ -31,6 +31,7 @@
 import datetime
 import getopt
 import os
+import pprint
 import re
 import sys
 from operator import itemgetter, attrgetter, methodcaller
@@ -130,7 +131,6 @@ def get_opts_args():
 
     return root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file
 
-
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass():
     def __init__(self, datum):
@@ -163,13 +163,46 @@ class PictClass():
         self.ISOSpeed , \
         self.av_gray )
 
+def make_regex_YMDHm_word():
+    # URL that generated this code: http://txt2re.com/
+    # regex matching: >'2013_09_17_1937_IMG_9930.JPG'<
+
+    re1 = '((?:(?:[1]{1}\\d{1}\\d{1}\\d{1})|(?:[2]{1}\\d{3})))(?![\\d])'  # Year 1
+    re2 = '(_)'  # Any Single Character 1
+    re3 = '(\\d)'  # Any Single Digit 1
+    re4 = '(\\d)'  # Any Single Digit 2
+    re5 = '(_)'  # Any Single Character 2
+    re6 = '(\\d)'  # Any Single Digit 3
+    re7 = '(\\d)'  # Any Single Digit 4
+    re8 = '(_)'  # Any Single Character 3
+    re9 = '(\\d)'  # Any Single Digit 5
+    re10 = '(\\d)'  # Any Single Digit 6
+    re11 = '(\\d)'  # Any Single Digit 7
+    re12 = '(\\d)'  # Any Single Digit 8
+    re13 = '(_)'  # Any Single Character 4
+    re14 = '((?:[a-z][a-z]+))'  # Word 1
+    re15 = '.*?'  # Non-greedy match on filler
+    re16 = '(\\.)'  # Any Single Character 5
+    re17 = '((?:[a-z][a-z]+))'  # Word 2
+
+    rgx = re.compile(
+        re1 + re2 + re3 + re4 + re5 + re6 + re7 + re8 + re9 + re10 + re11 + re12 + re13 + re14 + re15 + re16 + re17,
+        re.IGNORECASE | re.DOTALL)
+    # txt='2013_09_17_1937_IMG_9930.JPG'
+    # m = rgx.search(txt)
+    # if m: print 'ok'
+    return rgx
+
 def print_list_of_pict():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     cnt_files = 0
     for pict in list_of_pict:
         # pprint.pprint(pict)
-        print(pict)
-        cnt_files += 1
+        if pict.Model != 'rh':
+            cnt_files += 1
+            print '{:4d}'.format(cnt_files), pict
+        else:
+            print '    ', pict
     return cnt_files
 
 def print_list_of_missing_pict():
@@ -198,10 +231,11 @@ def initialize_list_of_pict():
         act_day  += step
         cnt_days +=  1
 
-def make_list_of_pict():
+def make_list_of_pict_via_EXIF():
     # >list_of_pict< and >dict_of_pict< are global
     stop_tag = 'UNDEF'
-    reg_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
+    reg_hhmm  = re.compile(r"^\d{4}_[A-Za-z]")
+    reg_YMDHm = make_regex_YMDHm_word()#
     # reg_YYYY_MM_DD_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
     cnt_jpg_files = 0
     root, dirs, files = os.walk(root_dir).next()  # only first level
@@ -277,24 +311,36 @@ def make_list_of_pict():
                     if not quiet: print Y_M_D_prefix, YMDHm_prefix
                     if re.match(reg_hhmm, f_name):  # re.match == regex am Stringanfang?
                         new_f_name = YMDHm_prefix + '_' + f_name[5:]
+                    elif reg_YMDHm.search(f_name):
+                        new_f_name = YMDHm_prefix + '_' + f_name[16:]
                     else:
                         new_f_name = YMDHm_prefix + '_' + f_name
 
             # f_name = basename(path_f_name)
-
             pict = dict_of_pict[Y_M_D_prefix]
             # pict.datum    = datum
-            pict.date     = Y_M_D_prefix
-            pict.Make     = Make
-            pict.Model    = Model
-            pict.fn       = new_f_name
-            pict.fn_old   = f_name
-            # pict.path_fn = new_path_f_name
-            pict.path_fn  = ''
-            pict.FNumber  = FNumber
-            pict.ExpsTime = ExposureTime_float
-            pict.ISOSpeed = ISOSpeed
-            pict.av_gray  = 99
+            if pict.date:
+                print '!!! >>>> ', pict.date, '!!! >>>> '
+                pass
+            else:
+                pict.date     = Y_M_D_prefix
+                pict.Make     = Make
+                pict.Model    = Model
+                pict.fn       = new_f_name
+                pict.fn_old   = f_name
+                # pict.path_fn = new_path_f_name
+                pict.path_fn  = ''
+                pict.FNumber  = FNumber
+                pict.ExpsTime = ExposureTime_float
+                pict.ISOSpeed = ISOSpeed
+                pict.av_gray  = 99
+
+    cnt_jpg_files = 0
+    for pict in list_of_pict:
+        if pict.Make != 'rh':
+            cnt_jpg_files += 1
+
+    return cnt_jpg_files
 
 def make_rename_batch_file():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
@@ -331,6 +377,21 @@ def calc_average_graylevel():
         im_np_array = np.array(image)
         pict.pict.av_gray = np.average(im_np_array)
 
+def calc_model_type_picts():
+    # calc's number of images per model
+    dict_model_cnt = {}
+    list_of_pict.sort(key=attrgetter('Model', 'datum'))
+    for pict in list_of_pict:
+        if pict.Model not in dict_model_cnt.keys():
+            dict_model_cnt[pict.Model] = 1
+        else:
+            dict_model_cnt[pict.Model] = dict_model_cnt[pict.Model] + 1
+    for key in dict_model_cnt.keys():
+        print key, dict_model_cnt[key]
+    # pprint.pprint (dict_model_cnt)
+    return dict_model_cnt
+
+
 
 #======================================================================
 
@@ -340,7 +401,7 @@ if __name__ == '__main__':
     initialize_list_of_pict()
 
     # >list_of_pict< and >dict_of_pict< are global
-    make_list_of_pict()
+    cnt_jpg_files = make_list_of_pict_via_EXIF()
 
     if do_make_batch_file:
         make_rename_batch_file()
@@ -352,13 +413,9 @@ if __name__ == '__main__':
         make_csv_file()
         csv_file.close()
 
-    print '\n' * 3
-
-    cnt_files = print_list_of_pict()
-    print '\n', '{:4d}'.format(cnt_files), ' vorhanden. '
-    cnt_files = print_list_of_missing_pict()
-    print '\n', '{:4d}'.format(cnt_files), ' fehlen. '
-
+    cnt_existing_files = print_list_of_pict()
+    cnt_missing_files  = print_list_of_missing_pict()
+    # print '\n', '{:4d}'.format(cnt_missing_files), ' fehlen. '
 
     if do_make_batch_file:
         print "\n\n>" + batch_f_name + "< written. ", cnt_files, "files to rename\n"
@@ -366,4 +423,8 @@ if __name__ == '__main__':
 
     print "\n\n"
     print ">", cnt_days, "days in total"
-    print ">", cnt_files, "files in directory \n"
+    print ">", cnt_existing_files, "files in directory \n"
+    print ">", cnt_jpg_files, "jpg files in directory \n"
+    calc_model_type_picts()
+    print ">", cnt_missing_files,  "missing files in directory \n"
+    # print ">", cnt_files, "files in directory \n"
