@@ -391,6 +391,13 @@ def calc_model_type_picts():
     # pprint.pprint (dict_model_cnt)
     return dict_model_cnt
 
+def split_and_combine_rgb_channels_():
+    rgbArray = np.zeros((512,512,3), 'uint8')
+    rgbArray[..., 0] = r*256
+    rgbArray[..., 1] = g*256
+    rgbArray[..., 2] = b*256
+    img = Image.fromarray(rgbArray)
+    img.save('myimg.jpeg')
 
 
 #======================================================================
