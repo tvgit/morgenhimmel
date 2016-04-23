@@ -443,19 +443,6 @@ def calc_model_type_picts():
     list_model_cnt.sort(key=lambda x: x[0])
     return list_model_cnt
 
-def split_and_combine_rgb_channels(fn_img_new, fn_img_1, fn_img_2, fn_img_3):
-    im = Image.open(fn_img_1)
-    red, g, b = im.split()
-    im.close()
-    im = Image.open(fn_img_2)
-    r, green, b = im.split()
-    im.close()
-    im = Image.open(fn_img_3)
-    r, g, blue = im.split()
-    im.close()
-    img = Image.merge("RGB", (red, green, blue))
-    img.save(fn_img_new)
-
 def make_result_path_fn (dir, fn):
     return os.path.join(root_dir,dir, fn)
 
@@ -473,6 +460,8 @@ def split_and_combine_rgb_channels(pict_new, pict_1, pict_2, pict_3):
     img.save((os.path.join(root_dir, synth_image_dir, pict_new.fn)))
 
 def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
+    # used lists are global. values are strings or corresponding floats
+
     global List_FNumber
     global List_ExpoTime
     global List_ISOSpeed
@@ -481,14 +470,31 @@ def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     global List_ExpoTime_float
     global List_ISOSpeed_float
 
+    # calc average (FNumber, Expotime, ISOSpeed) from the 3 source images.
     average_FNumber   = (float(pict_1.FNumber) + float(pict_2.FNumber) + float(pict_3.FNumber)) / 3
     average_ExpoTime  = (float(pict_1.ExpoTime) + float(pict_2.ExpoTime) + float(pict_3.ExpoTime)) / 3
     average_ISOSpeed  = (float(pict_1.ISOSpeed) + float(pict_2.ISOSpeed) + float(pict_3.ISOSpeed)) / 3
 
+    # Look for the nearest norm-value by calculating deltas from corresponding list of norm-values
+    # Use index to extract nearest value as fraction (as string)
+
     # val, idx = min((val, idx) for (idx, val) in enumerate(my_list))
     list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumber_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_FNumber))
-    pass
+    # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumber_float[idx], List_FNumber[idx]
+    pict_new.FNumber       = List_FNumber[idx]
+    pict_new.FNumber_float = List_FNumber_float[idx]
+
+    list_delta_ExpoTime = list(abs(float(x - average_ExpoTime)) for x in List_ExpoTime_float)
+    val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_ExpoTime))
+    pict_new.ExpoTime       = List_ExpoTime[idx]
+    pict_new.ExpoTime_float = List_ExpoTime_float[idx]
+
+    list_delta_ISOSpeed = list(abs(float(x - average_ISOSpeed)) for x in List_ISOSpeed_float)
+    val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_ISOSpeed))
+    pict_new.ISOSpeed       = List_ISOSpeed[idx]
+    pict_new.ISOSpeed_float = List_ISOSpeed_float[idx]
+
 
 def make_new_images_logstr (cnt, new_pict, pict_s):
     log_str = str(cnt) + ' ; ' + new_pict.fn + ' ; '
@@ -538,8 +544,9 @@ def make_new_images():
     cnt = 0
     for pict in list_of_pict:
         if pict.Model == 'rh':          # find fn of next image to synthesize
-            pict_synth = pict
             cnt += 1
+            print "\r", 'synthesizing new image # ', cnt,
+            pict_synth = pict
             if random.random() < cut:   # 1 .. cnt_g1X - 1   == range with G1 X images
                 low = 1
                 high = cnt_g1X - 1
@@ -554,11 +561,9 @@ def make_new_images():
 
             log_str = make_new_images_logstr(cnt, pict_synth, pict_s)
             # print (log_str)
-            log_f.write (log_str)
             # split_and_combine_rgb_channels(pict_synth, pict_s[0], pict_s[1], pict_s[0])
             calc_and_store_FN_ExposureTime_ISOSpeed (pict_synth, pict_s[0], pict_s[1], pict_s[0])
-            # split_and_combine_rgb_channels(fn_img_new, p_fn_1, p_fn_2, p_fn_3)
-            print "\r", 'synthesizing new image # ', cnt,
+            log_f.write(log_str)
     log_f.close()
 
 #======================================================================
