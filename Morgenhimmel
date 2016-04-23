@@ -24,6 +24,9 @@
 ## Dicts und Listen von DIcts kann man auch gut sortieren:
 ## https://wiki.python.org/moin/HowTo/Sorting  -> 'itemgetter' !!
 ##
+## TODO serialization of class members
+## http://www.ibm.com/developerworks/library/l-pypers/
+##
 ## TODO dummy Bilder für die fehlenden Bilder erzeugen:
 ## Geht mit pil
 ## TODO mit pickle die Liste der pict sichern:
@@ -31,6 +34,7 @@
 import csv
 import datetime
 import getopt
+import json
 import os
 import pprint
 import random
@@ -150,7 +154,7 @@ def get_opts_args():
     return root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file
 
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
-class PictClass():
+class PictClass(object):
     def __init__(self, datum):
         self.datum       = datum
         self.date        = ''
@@ -170,7 +174,7 @@ class PictClass():
 
     def __repr__(self):
         # return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
-        return '"%s"'*14 % ( \
+        return '%s; '*14 % ( \
         self.datum , \
         self.Make , \
         self.Model , \
@@ -185,6 +189,16 @@ class PictClass():
         self.ISOSpeed , \
         self.av_gray , \
         self.sources )
+
+
+    fieldnames = [ "datum", "Make", "Model",
+                   "date", "fn", "fn_old", "path_fn",
+                   "FNumber_str" , "FNumber",
+                   "ExpoTime_str", "ExpoTime",
+                   "ISOSpeed",
+                   "av_gray",
+                   "sources"]
+
 
 def make_regex_YMDHm_word():
     # URL that generated this code: http://txt2re.com/
@@ -227,6 +241,11 @@ def print_list_of_existing_picts():
             # print 'Model = rh: ', pict
             pass
     return cnt_files
+
+def print_all_existing_picts():
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    for pict in list_of_pict:
+        pprint.pprint(pict)
 
 def print_list_of_missing_picts():
     cnt_files = 0
@@ -297,6 +316,11 @@ def make_list_of_picts_via_EXIF():
 
                 if key.find('Model') >= 0:
                     Model = data[key].printable
+                    if Model.find('G1 X'):
+                        Model = 'G1 X'
+                    elif Model.find('G15'):
+                        Model = 'G15'
+
                     # print 'Model =', Model
 
                 if key.find('FNumber') >= 0:
@@ -369,11 +393,45 @@ def make_list_of_picts_via_EXIF():
 def make_result_path_fn (dir, fn):
     return os.path.join(root_dir,dir, fn)
 
-def serialize(list_of_pict):
-    with open(make_result_path_fn ('result', 'picts.csv'), 'wb') as csv_file:
-        wr = csv.writer(csv_file, lineterminator='\n', quoting=csv.QUOTE_ALL)
-        wr.writerow(list_of_pict)
+def picts_members_show(list_of_pict):
+    for pict in list_of_pict:
+        print '\n -------------- \n'
+        for k, v in vars(pict).items():
+            print 'k= ', k, 'v= ', v
 
+
+def picts_csv_write(list_of_pict):
+    # http://stackoverflow.com/questions/61517/python-dictionary-from-an-objects-fields
+    # def class_members_to_dict():
+    #     pass
+    # dict_of_pict = list_of_pict.__dict__
+    # http://stackoverflow.com/questions/3086973/how-do-i-convert-this-list-of-dictionaries-to-a-csv-file-python
+    fn = make_result_path_fn('result', 'picts.csv')
+    pict = list_of_pict[0]
+    # fieldnames = sorted(pict.__dict__.keys())
+    fieldnames = pict.fieldnames
+
+    with open(fn, 'wb') as csv_file:
+        # fieldnames = ['first_name', 'last_name']
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames )
+        writer.writeheader()
+        for pict in list_of_pict:
+            print pict.__dict__
+            writer.writerow(pict.__dict__)
+    pprint.pprint(fieldnames)
+
+    # with open(fn, 'wb') as csv_file:
+    #     writer = csv.writer(csv_file, lineterminator='\n', quoting=csv.QUOTE_ALL)
+    #     writer.writerow(list_of_pict.__dict__)
+
+
+def picts_csv_read(list_of_pict):
+    fn = make_result_path_fn('result', 'picts.csv')
+    with open(fn, 'r') as csv_file:
+        # reader = csv.reader(csv_file, lineterminator='\n', quoting=csv.QUOTE_ALL)
+        reader = csv.reader(csv_file)
+        for row in reader:
+            print '\n-> ', row
         # writer = csv.writer(csv_file, lineterminator='\n')
         # writer.writerows(list_of_pict)
 
@@ -414,8 +472,6 @@ def make_csv_file():
         csv_str += '\n'
         csv_file.write(csv_str)
     csv_file.close()
-
-        # print '>>>>', csv_str
 
 def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
@@ -620,7 +676,13 @@ if __name__ == '__main__':
     if do_make_csv_file:
         make_csv_file()
 
-    serialize(list_of_pict)
+
+    # print_all_existing_picts()
+
+    # picts_members_show(list_of_pict)
+
+    picts_csv_write(list_of_pict)
+    # picts_csv_read(list_of_pict)
 
     print "\n> end"
 # print ">", cnt_files, "files in directory \n"
