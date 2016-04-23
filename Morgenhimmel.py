@@ -32,6 +32,7 @@ import datetime
 import getopt
 import os
 import pprint
+import random
 import re
 import sys
 from operator import itemgetter, attrgetter, methodcaller
@@ -140,7 +141,7 @@ class PictClass():
         self.Model       = 'rh'
         self.date        = ''
         self.fn          = ''
-        self.fn_old      = ''
+        self.fn_old      = '0900_IMG_rh.JPG'
         self.path_fn     = ''
         self.FNumber_str = ''
         self.FNumber     = ''
@@ -335,10 +336,18 @@ def make_list_of_pict_via_EXIF():
                 pict.ISOSpeed = ISOSpeed
                 pict.av_gray  = 99
 
+
     cnt_jpg_files = 0
     for pict in list_of_pict:
         if pict.Make != 'rh':
             cnt_jpg_files += 1
+
+    for pict in list_of_pict:
+        if pict.Model == 'rh':  # == missing images == to be synthesized
+            pict.fn = pict.datum + '_' + pict.fn_old
+            pict.date = pict.datum
+            pict.Make = 'rh'
+            pict.Model = 'rh'
 
     return cnt_jpg_files
 
@@ -386,12 +395,15 @@ def calc_model_type_picts():
             dict_model_cnt[pict.Model] = 1
         else:
             dict_model_cnt[pict.Model] = dict_model_cnt[pict.Model] + 1
-    # for key in dict_model_cnt.keys():
-    #     print key, dict_model_cnt[key]
-    # pprint.pprint (dict_model_cnt)
-    return dict_model_cnt
+    list_model_cnt = [] # of model_cnt  <> convert dict to list (better to sort)
+    for model, cnt in sorted(dict_model_cnt.iteritems()):
+        temp = [model, cnt]
+        list_model_cnt.append(temp)
 
-def split_and_combine_rgb_channels_(fn_img_new, fn_img_1, fn_img_2, fn_img_3):
+    list_model_cnt.sort(key=lambda x: x[0])
+    return list_model_cnt
+
+def split_and_combine_rgb_channels(fn_img_new, fn_img_1, fn_img_2, fn_img_3):
     im = Image.open(fn_img_1)
     red, g, b = im.split()
     im.close()
@@ -402,15 +414,65 @@ def split_and_combine_rgb_channels_(fn_img_new, fn_img_1, fn_img_2, fn_img_3):
     r, g, blue = im.split()
     im.close()
 
-    img = Image.merge(“RGB”, (r, g, b))
+    img = Image.merge("RGB", (r, g, b))
     img.save(fn_img_new)
 
-def make_new_images():
-    dict_model_cnt = calc_model_type_picts()
-    for key in dict_model_cnt.keys():
-        print key, dict_model_cnt[key]
+def make_result_path (dir, fn):
+    return os.path.join(root_dir,dir, fn)
 
-    split_and_combine_rgb_channels_(fn_img_new, fn_img_1, fn_img_2, fn_img_3)
+def make_new_images():
+    res_dir = 'result_new_images'
+    list_model_cnt = calc_model_type_picts()
+    iter_list_model_cnt = iter(list_model_cnt)  # convert to iterator
+    model, cnt_g1X = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict
+    model, cnt_g15 = iter_list_model_cnt.next() #
+    # cnt_g1X + cnt_g15 == 100%  = 0 .. 1.0
+    cut =  float(cnt_g1X) / (float(cnt_g15) + float(cnt_g1X))
+    list_of_pict.sort(key=attrgetter('Model', 'datum'))  # in place
+
+    log_fn = 'new_images.log'
+    log_f  = open(make_result_path(res_dir, log_fn), 'w')
+
+    cnt = 0
+
+    for pict in list_of_pict:
+        if pict.Model == 'rh':   # find fn of next image to synthesize
+            cnt += 1
+            if random.random() < cut:
+                low = 1
+                high = cnt_g1X - 1
+            else:
+                low  = cnt_g1X
+                high = cnt_g1X + cnt_g15 - 1
+
+            print 'pict.fn = ', pict.fn
+            fn_img_new = make_result_path(res_dir, pict.fn )
+
+            idx = int(round(random.uniform(low, high)))
+            mod_1  = list_of_pict[idx].Model
+            fn_1   = list_of_pict[idx].fn
+            p_fn_1 = make_result_path('', fn_1)
+
+            idx = int(round(random.uniform(low, high)))
+            mod_2  = list_of_pict[idx].Model
+            fn_2   = list_of_pict[idx].fn
+            p_fn_2 = make_result_path('', fn_2)
+
+            idx = int(round(random.uniform(low, high)))
+            mod_3  = list_of_pict[idx].Model
+            fn_3   = list_of_pict[idx].fn
+            p_fn_3 = make_result_path('', fn_3)
+            print fn_img_new, fn_1, fn_2, fn_3
+            log_f.write (str(cnt) + ' ; ' + fn_img_new + ' ; ')
+            log_f.write (mod_1 + ' ; '  + fn_1 + ' ; ')
+            log_f.write (mod_2 + ' ; '  + fn_2 + ' ; ')
+            log_f.write (mod_3 + ' ; '  + fn_3 + ' ; ')
+            log_f.write ('\n')
+            split_and_combine_rgb_channels(fn_img_new, p_fn_1, p_fn_2, p_fn_3)
+
+    log_f.close()
+    print cut, cnt_g1X, cnt_g15, list_of_pict[cnt_g1X - 1].fn
+
 
 
 #======================================================================
@@ -435,7 +497,7 @@ if __name__ == '__main__':
 
     cnt_existing_files = print_list_of_pict()
     cnt_missing_files  = print_list_of_missing_pict()
-    # print '\n', '{:4d}'.format(cnt_missing_files), ' fehlen. '
+    ## print '\n', '{:4d}'.format(cnt_missing_files), ' fehlen. '
 
     if do_make_batch_file:
         print "\n\n>" + batch_f_name + "< written. ", cnt_files, "files to rename\n"
@@ -445,8 +507,9 @@ if __name__ == '__main__':
     print ">", cnt_days, "days in total"
     print ">", cnt_existing_files, "files in directory \n"
     print ">", cnt_jpg_files, "jpg files in directory \n"
-    dict_model_cnt = calc_model_type_picts()
-    for key in dict_model_cnt.keys():
-        print key, dict_model_cnt[key]
+    make_new_images()
+    list_model_cnt = calc_model_type_picts()
+    for model, cnt in list_model_cnt:
+        print model + ':', cnt
     print ">", cnt_missing_files,  "missing files in directory \n"
     # print ">", cnt_files, "files in directory \n"
