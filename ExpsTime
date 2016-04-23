@@ -478,7 +478,7 @@ def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     # Look for the nearest norm-value by calculating deltas from corresponding list of norm-values
     # Use index to extract nearest value as fraction (as string)
 
-    # val, idx = min((val, idx) for (idx, val) in enumerate(my_list))
+    # val,  idx = min((val, idx) for (idx, val) in enumerate(my_list))
     list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumber_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_FNumber))
     # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumber_float[idx], List_FNumber[idx]
