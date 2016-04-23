@@ -48,7 +48,12 @@ do_make_batch_file = False
 do_make_csv_file   = False
 do_make_csv_file   = True
 do_make_new_images = False
+do_make_new_images = True
 # do_make_new_images = True
+
+root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
+root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle_001'
+synth_image_dir = 'synth_images'
 
 dict_of_pict = {}
 list_of_pict = []
@@ -73,7 +78,7 @@ def usage(exit_status):
 
 def get_opts_args():
     quiet = True
-    root_dir = ''
+    global root_dir
     global do_calc_average
     global do_make_csv_file
     global csv_file
@@ -108,8 +113,6 @@ def get_opts_args():
 
     if not root_dir:
         root_dir = '.'
-        root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
-        root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle_001'
 
     if not quiet:
         print 'root_dir: >' + root_dir + '<'
@@ -153,9 +156,11 @@ class PictClass():
         self.ExpsTime    = ''
         self.ISOSpeed    = ''
         self.av_gray     = '99'
+        self.sources     = ''
 
     def __repr__(self):
-        return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
+        # return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
+        return '"%s"*13' % ( \
         self.datum , \
         self.Make , \
         self.Model , \
@@ -167,7 +172,8 @@ class PictClass():
         self.FNumber , \
         self.ExpsTime , \
         self.ISOSpeed , \
-        self.av_gray )
+        self.av_gray , \
+        self.sources )
 
 def make_regex_YMDHm_word():
     # URL that generated this code: http://txt2re.com/
@@ -372,7 +378,7 @@ def make_csv_file():
     for pict in list_of_pict:
         cnt_jpg_files += 1
         if cnt_jpg_files == 1:
-            csv_header = 'Datum; fn ; Model; FNumber_str; FNumber; ExpoTime, ISOSpeed, AverageGray'
+            csv_header = 'Datum; fn ; Model; FNumber_str; FNumber; ExpoTime, ISOSpeed, AverageGray, Merge'
             csv_file.write(csv_header)
         csv_str  = pict.datum + sep + pict.fn + sep + pict.Model + sep
         csv_str += pict.FNumber_str + sep + pict.FNumber + sep
@@ -380,6 +386,7 @@ def make_csv_file():
         csv_str += str(pict.ExpsTime) + sep
         csv_str += pict.ISOSpeed + sep
         csv_str += str(pict.av_gray) + sep
+        csv_str += str(pict.sources) + sep
         csv_str += '\n'
         csv_file.write(csv_str)
         # print '>>>>', csv_str
@@ -422,61 +429,77 @@ def split_and_combine_rgb_channels(fn_img_new, fn_img_1, fn_img_2, fn_img_3):
     img = Image.merge("RGB", (red, green, blue))
     img.save(fn_img_new)
 
-def make_result_path (dir, fn):
+def make_result_path_fn (dir, fn):
     return os.path.join(root_dir,dir, fn)
 
-def make_new_images():
-    res_dir = 'result_new_images'
-    list_model_cnt = calc_model_type_picts()
-    iter_list_model_cnt = iter(list_model_cnt)  # convert to iterator
-    model, cnt_g1X = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict
-    model, cnt_g15 = iter_list_model_cnt.next() #
-    # cnt_g1X + cnt_g15 == 100%  = 0 .. 1.0
-    cut =  float(cnt_g1X) / (float(cnt_g15) + float(cnt_g1X))
-    list_of_pict.sort(key=attrgetter('Model', 'datum'))  # in place
+def split_and_combine_rgb_channels(pict_new, pict_1, pict_2, pict_3):
+    im = Image.open(os.path.join(root_dir, pict_1.fn))
+    red, g, b = im.split()
+    im.close()
+    im = Image.open(os.path.join(root_dir, pict_2.fn))
+    r, green, b = im.split()
+    im.close()
+    im = Image.open(os.path.join(root_dir, pict_3.fn))
+    r, g, blue = im.split()
+    im.close()
+    img = Image.merge("RGB", (red, green, blue))
+    img.save((os.path.join(root_dir, synth_image_dir, pict_new.fn)))
 
-    log_fn = 'new_images.log'
-    log_f  = open(make_result_path(res_dir, log_fn), 'w')
+def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
+    sum_FNumber  = pict_1.FNumber + pict_2.FNumber + pict_3.FNumber
+    sum_ExpsTime = pict_1.ExpsTime + pict_2.ExpsTime + pict_3.ExpsTime
+    sum_ISOSpeed = pict_1.ISOSpeed + pict_2.ISOSpeed + pict_3.ISOSpeed
+    pass
+
+def make_new_images_logstr (cnt, new_pict, pict_s):
+    log_str = str(cnt) + ' ; ' + new_pict.fn + ' ; '
+    log_str += pict_s[0].Model + ' ; ' + pict_s[0].fn + ' ; '
+    log_str += pict_s[1].Model + ' ; ' + pict_s[1].fn + ' ; '
+    log_str += pict_s[2].Model + ' ; ' + pict_s[2].fn + ' ; '
+    log_str += '\n'
+    return log_str
+
+def make_new_images():
+    # synth images:
+    # a) combine r,g,b channels from 3 different images of _same_ camera model (to conserve dimensions, geometry etc)
+    # b) relation of camera model of new images reflects relation of camera models of existing images
+    list_model_cnt = calc_model_type_picts()    # list: how many img's from which camera model ?
+    iter_list_model_cnt = iter(list_model_cnt)  # convert list to iterator
+    model, cnt_g1X = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  first  model (G1 X)
+    model, cnt_g15 = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  second model (G15)
+    # cnt of all existing images == cnt_g1X + cnt_g15 == 100%  = 0 .. 1.0
+    # cut == percentage of G1X - images; (1 - cut) == percentage of G15 - images
+    cut =  float(cnt_g1X) / (float(cnt_g15) + float(cnt_g1X))  # relation cnt_G1X to cnt_G15
+    list_of_pict.sort(key=attrgetter('Model', 'datum'))        # sort in place
+
+    log_fn = 'new_images_test.log'                                      # log filename
+    log_f  = open(os.path.join(root_dir, synth_image_dir, log_fn), 'w') # log file in sub dir
 
     cnt = 0
-
     for pict in list_of_pict:
-        if pict.Model == 'rh':   # find fn of next image to synthesize
+        if pict.Model == 'rh':          # find fn of next image to synthesize
+            pict_synth = pict
             cnt += 1
-            if random.random() < cut:
+            if random.random() < cut:   # 1 .. cnt_g1X - 1   == range with G1 X images
                 low = 1
                 high = cnt_g1X - 1
-            else:
+            else:                       # cnt_g1X .. cnt_g15 == range with G15 images
                 low  = cnt_g1X
                 high = cnt_g1X + cnt_g15 - 1
 
-            # print 'pict.fn = ', pict.fn
-            fn_img_new = make_result_path(res_dir, pict.fn )
+            pict_s = []
+            for idx in range(0,3):  # 0,1,2 i.e. find 3 images in the same range (with same model) as 'pict_synth'.
+                l_pict = list_of_pict[int(round(random.uniform(low, high)))]  # low, high == range of G1X or G15
+                pict_s.append(l_pict)
 
-            idx = int(round(random.uniform(low, high)))
-            mod_1  = list_of_pict[idx].Model
-            fn_1   = list_of_pict[idx].fn
-            p_fn_1 = make_result_path('', fn_1)
-
-            idx = int(round(random.uniform(low, high)))
-            mod_2  = list_of_pict[idx].Model
-            fn_2   = list_of_pict[idx].fn
-            p_fn_2 = make_result_path('', fn_2)
-
-            idx = int(round(random.uniform(low, high)))
-            mod_3  = list_of_pict[idx].Model
-            fn_3   = list_of_pict[idx].fn
-            p_fn_3 = make_result_path('', fn_3)
-            # print fn_img_new, fn_1, fn_2, fn_3
-            log_f.write (str(cnt) + ' ; ' + fn_img_new + ' ; ')
-            log_f.write (mod_1 + ' ; '  + fn_1 + ' ; ')
-            log_f.write (mod_2 + ' ; '  + fn_2 + ' ; ')
-            log_f.write (mod_3 + ' ; '  + fn_3 + ' ; ')
-            log_f.write ('\n')
-            split_and_combine_rgb_channels(fn_img_new, p_fn_1, p_fn_2, p_fn_3)
-
+            log_str = make_new_images_logstr(cnt, pict_synth, pict_s)
+            # print (log_str)
+            log_f.write (log_str)
+            # split_and_combine_rgb_channels(pict_synth, pict_s[0], pict_s[1], pict_s[0])
+            calc_and_store_FN_ExposureTime_ISOSpeed (pict_synth, pict_s[0], pict_s[1], pict_s[0])
+            # split_and_combine_rgb_channels(fn_img_new, p_fn_1, p_fn_2, p_fn_3)
+            print "\r", 'synthesizing new image # ', cnt,
     log_f.close()
-    # print cut, cnt_g1X, cnt_g15, list_of_pict[cnt_g1X - 1].fn
 
 #======================================================================
 if __name__ == '__main__':
@@ -509,11 +532,16 @@ if __name__ == '__main__':
     print ">", cnt_days, "days in total"
     print ">", cnt_existing_files, "files in directory \n"
     print ">", cnt_jpg_files, "jpg files in directory \n"
-    if do_make_new_images:
-        make_new_images()
+    print ">", cnt_missing_files,  "missing files in directory \n"
 
     list_model_cnt = calc_model_type_picts()
     for model, cnt in list_model_cnt:
         print model + ':', cnt
-    print ">", cnt_missing_files,  "missing files in directory \n"
-    # print ">", cnt_files, "files in directory \n"
+
+    if do_make_new_images:
+        print "\n"
+        make_new_images()
+        print "\n"
+
+    print "\n> end"
+# print ">", cnt_files, "files in directory \n"
