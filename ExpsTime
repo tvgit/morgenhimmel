@@ -170,8 +170,8 @@ class PictClass():
         self.sources     = ''
 
     def __repr__(self):
-        # return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
-        return '"%s"*14' % ( \
+        # return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
+        return '"%s"'*14 % ( \
         self.datum , \
         self.Make , \
         self.Model , \
@@ -477,23 +477,22 @@ def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
 
     # Look for the nearest norm-value by calculating deltas from corresponding list of norm-values
     # Use index to extract nearest value as fraction (as string)
-
-    # val,  idx = min((val, idx) for (idx, val) in enumerate(my_list))
+    # val, idx = min((val, idx) for (idx, val) in enumerate(my_list))
     list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumber_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_FNumber))
-    # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumber_float[idx], List_FNumber[idx]
-    pict_new.FNumber       = List_FNumber[idx]
-    pict_new.FNumber_float = List_FNumber_float[idx]
+    print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumber_float[idx], List_FNumber[idx]
+    pict_new.FNumber     = List_FNumber_float[idx]
+    pict_new.FNumber_str = List_FNumber[idx]
 
     list_delta_ExpoTime = list(abs(float(x - average_ExpoTime)) for x in List_ExpoTime_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_ExpoTime))
-    pict_new.ExpoTime       = List_ExpoTime[idx]
-    pict_new.ExpoTime_float = List_ExpoTime_float[idx]
+    pict_new.ExpoTime     = List_ExpoTime_float[idx]
+    pict_new.ExpoTime_str = List_ExpoTime[idx]
 
     list_delta_ISOSpeed = list(abs(float(x - average_ISOSpeed)) for x in List_ISOSpeed_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_ISOSpeed))
-    pict_new.ISOSpeed       = List_ISOSpeed[idx]
-    pict_new.ISOSpeed_float = List_ISOSpeed_float[idx]
+    pict_new.ISOSpeed     = List_ISOSpeed_float[idx]
+    pict_new.ISOSpeed_str = List_ISOSpeed[idx]
 
 
 def make_new_images_logstr (cnt, new_pict, pict_s):
@@ -503,6 +502,11 @@ def make_new_images_logstr (cnt, new_pict, pict_s):
     log_str += pict_s[2].Model + ' ; ' + pict_s[2].fn + ' ; '
     log_str += '\n'
     return log_str
+
+def list_new_images():
+    for pict in list_of_pict:
+        if pict.Model == 'rh': # find synthesized images
+            print pict
 
 def make_new_images():
     # following _global_ lists are used in >def calc_and_store_FN_ExposureTime_ISOSpeed<
@@ -533,7 +537,7 @@ def make_new_images():
     iter_list_model_cnt = iter(list_model_cnt)  # convert list to iterator
     model, cnt_g1X = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  first  model (G1 X)
     model, cnt_g15 = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  second model (G15)
-    # cnt of all existing images == cnt_g1X + cnt_g15 == 100%  = 0 .. 1.0
+    # cnt of all existing images == (cnt_g1X + cnt_g15) == 100%  = 0 .. 1.0
     # cut == percentage of G1X - images; (1 - cut) == percentage of G15 - images
     cut =  float(cnt_g1X) / (float(cnt_g15) + float(cnt_g1X))  # relation cnt_G1X to cnt_G15
     list_of_pict.sort(key=attrgetter('Model', 'datum'))        # sort in place
@@ -546,7 +550,7 @@ def make_new_images():
         if pict.Model == 'rh':          # find fn of next image to synthesize
             cnt += 1
             print "\r", 'synthesizing new image # ', cnt,
-            pict_synth = pict
+            pict_to_synth = pict
             if random.random() < cut:   # 1 .. cnt_g1X - 1   == range with G1 X images
                 low = 1
                 high = cnt_g1X - 1
@@ -559,12 +563,15 @@ def make_new_images():
                 l_pict = list_of_pict[int(round(random.uniform(low, high)))]  # low, high == range of G1X or G15
                 pict_s.append(l_pict)
 
-            log_str = make_new_images_logstr(cnt, pict_synth, pict_s)
             # print (log_str)
-            # split_and_combine_rgb_channels(pict_synth, pict_s[0], pict_s[1], pict_s[0])
-            calc_and_store_FN_ExposureTime_ISOSpeed (pict_synth, pict_s[0], pict_s[1], pict_s[0])
+            # split_and_combine_rgb_channels(pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
+            pict_to_synth.sources = pict_s[0].fn + ', ' + pict_s[1].fn + ', ' + pict_s[2].fn
+            calc_and_store_FN_ExposureTime_ISOSpeed (pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
+            log_str = make_new_images_logstr(cnt, pict_to_synth, pict_s)
             log_f.write(log_str)
+
     log_f.close()
+    list_new_images()
 
 #======================================================================
 if __name__ == '__main__':
