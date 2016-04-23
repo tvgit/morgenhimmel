@@ -48,6 +48,7 @@ do_make_batch_file = False
 do_make_csv_file   = False
 do_make_csv_file   = True
 do_make_new_images = False
+# do_make_new_images = True
 
 dict_of_pict = {}
 list_of_pict = []
@@ -71,7 +72,7 @@ def usage(exit_status):
         sys.exit(exit_status)
 
 def get_opts_args():
-    quiet = False
+    quiet = True
     root_dir = ''
     global do_calc_average
     global do_make_csv_file
@@ -207,7 +208,7 @@ def print_list_of_pict():
             cnt_files += 1
             # print '{:4d}'.format(cnt_files), pict
         else:
-            print '    ', pict
+            # print 'Model = rh: ', pict
             pass
     return cnt_files
 
@@ -418,8 +419,7 @@ def split_and_combine_rgb_channels(fn_img_new, fn_img_1, fn_img_2, fn_img_3):
     im = Image.open(fn_img_3)
     r, g, blue = im.split()
     im.close()
-
-    img = Image.merge("RGB", (r, g, b))
+    img = Image.merge("RGB", (red, green, blue))
     img.save(fn_img_new)
 
 def make_result_path (dir, fn):
