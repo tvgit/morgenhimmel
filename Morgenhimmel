@@ -28,6 +28,7 @@
 ## Geht mit pil
 ## TODO mit pickle die Liste der pict sichern:
 
+import csv
 import datetime
 import getopt
 import os
@@ -48,9 +49,8 @@ do_calc_average    = False
 do_make_batch_file = False
 do_make_csv_file   = False
 do_make_csv_file   = True
-do_make_new_images = False
 do_make_new_images = True
-# do_make_new_images = True
+do_make_new_images = False
 
 root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
 root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle_001'
@@ -366,6 +366,18 @@ def make_list_of_picts_via_EXIF():
             cnt_jpg_files += 1
     return cnt_jpg_files
 
+def make_result_path_fn (dir, fn):
+    return os.path.join(root_dir,dir, fn)
+
+def serialize(list_of_pict):
+    with open(make_result_path_fn ('result', 'picts.csv'), 'wb') as csv_file:
+        wr = csv.writer(csv_file, lineterminator='\n', quoting=csv.QUOTE_ALL)
+        wr.writerow(list_of_pict)
+
+        # writer = csv.writer(csv_file, lineterminator='\n')
+        # writer.writerows(list_of_pict)
+
+
 def make_rename_batch_file():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     for pict in list_of_pict:
@@ -431,9 +443,6 @@ def calc_model_type_picts():
     list_model_cnt.sort(key=lambda x: x[0])
     return list_model_cnt
 
-def make_result_path_fn (dir, fn):
-    return os.path.join(root_dir,dir, fn)
-
 def split_and_combine_rgb_channels(pict_new, pict_1, pict_2, pict_3):
     im = Image.open(os.path.join(root_dir, pict_1.fn))
     red, g, b = im.split()
@@ -485,7 +494,6 @@ def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     pict_new.ISOSpeed     = List_ISOSpeed_float[idx]
     pict_new.ISOSpeed_str = List_ISOSpeed[idx]
 
-
 def make_new_images_logstr (cnt, new_pict, pict_s):
     log_str = str(cnt) + ' ; ' + new_pict.fn + ' ; '
     log_str += pict_s[0].Model + ' ; ' + pict_s[0].fn + ' ; '
@@ -496,7 +504,7 @@ def make_new_images_logstr (cnt, new_pict, pict_s):
 
 def list_synthesized_images():
     for pict in list_of_pict:
-        if pict.Make == 'rh': # find synthesized images
+        if pict.Model == 'synthesized': # find synthesized images
             print pict
 
 def make_new_images():
@@ -611,6 +619,8 @@ if __name__ == '__main__':
 
     if do_make_csv_file:
         make_csv_file()
+
+    serialize(list_of_pict)
 
     print "\n> end"
 # print ">", cnt_files, "files in directory \n"
