@@ -12,7 +12,7 @@
 # 4. Fehlende Bilder ersetzen (496 = 2**4  * 31)  # 497 möglich
 #
 # Output:
-# 1. neuen Filenamen samt Path 
+# 1. neuen Filenamen samt Path
 # 2. (Batchfile)
 #
 # https://pypi.python.org/pypi/ExifRead
@@ -156,10 +156,10 @@ class PictClass():
         self.datum       = datum
         self.date        = ''
         self.Make        = 'rh'
-        self.Model       = 'rh'
+        self.Model       = 'ToDo'
         self.date        = ''
         self.fn          = ''
-        self.fn_old      = '0900_IMG_rh.JPG'
+        self.fn_old      = '0900_IMG_rh.JPG'         # default
         self.path_fn     = ''
         self.FNumber_str = ''
         self.FNumber     = ''
@@ -190,7 +190,6 @@ class PictClass():
 def make_regex_YMDHm_word():
     # URL that generated this code: http://txt2re.com/
     # regex matching: >'2013_09_17_1937_IMG_9930.JPG'<
-
     re1 = '((?:(?:[1]{1}\\d{1}\\d{1}\\d{1})|(?:[2]{1}\\d{3})))(?![\\d])'  # Year 1
     re2 = '(_)'  # Any Single Character 1
     re3 = '(\\d)'  # Any Single Digit 1
@@ -217,12 +216,12 @@ def make_regex_YMDHm_word():
     # if m: print 'ok'
     return rgx
 
-def print_list_of_pict():
+def print_list_of_existing_picts():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     cnt_files = 0
     for pict in list_of_pict:
         # pprint.pprint(pict)
-        if pict.Model != 'rh':
+        if pict.Model != 'ToDo':
             cnt_files += 1
             # print '{:4d}'.format(cnt_files), pict
         else:
@@ -230,15 +229,15 @@ def print_list_of_pict():
             pass
     return cnt_files
 
-def print_list_of_missing_pict():
+def print_list_of_missing_picts():
     cnt_files = 0
     for pict in list_of_pict:
-        if pict.Make == 'rh':
+        if pict.Make == 'ToDo':
             # print(pict)
             cnt_files += 1
     return cnt_files
 
-def initialize_list_of_pict():
+def initialize_list_of_picts():
     # >list_of_pict< and >dict_of_pict< are global
     global cnt_days
     date1   = '2013_04_07'
@@ -256,7 +255,7 @@ def initialize_list_of_pict():
         act_day  += step
         cnt_days +=  1
 
-def make_list_of_pict_via_EXIF():
+def make_list_of_picts_via_EXIF():
     # >list_of_pict< and >dict_of_pict< are global
     stop_tag = 'UNDEF'
     reg_hhmm  = re.compile(r"^\d{4}_[A-Za-z]")
@@ -371,11 +370,11 @@ def make_list_of_pict_via_EXIF():
             cnt_jpg_files += 1
 
     for pict in list_of_pict:
-        if pict.Model == 'rh':  # == missing images == to be synthesized
+        if pict.Model == 'ToDo':  # == missing images == to be synthesized
             pict.fn = pict.datum + '_' + pict.fn_old
             pict.date = pict.datum
             pict.Make = 'rh'
-            pict.Model = 'rh'
+            pict.Model = 'ToDo'
 
     return cnt_jpg_files
 
@@ -480,7 +479,7 @@ def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     # val, idx = min((val, idx) for (idx, val) in enumerate(my_list))
     list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumber_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_FNumber))
-    print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumber_float[idx], List_FNumber[idx]
+    # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumber_float[idx], List_FNumber[idx]
     pict_new.FNumber     = List_FNumber_float[idx]
     pict_new.FNumber_str = List_FNumber[idx]
 
@@ -503,9 +502,9 @@ def make_new_images_logstr (cnt, new_pict, pict_s):
     log_str += '\n'
     return log_str
 
-def list_new_images():
+def list_synthesized_images():
     for pict in list_of_pict:
-        if pict.Model == 'rh': # find synthesized images
+        if pict.Make == 'rh': # find synthesized images
             print pict
 
 def make_new_images():
@@ -547,7 +546,7 @@ def make_new_images():
 
     cnt = 0
     for pict in list_of_pict:
-        if pict.Model == 'rh':          # find fn of next image to synthesize
+        if pict.Model == 'ToDo':          # find fn of next image to synthesize
             cnt += 1
             print "\r", 'synthesizing new image # ', cnt,
             pict_to_synth = pict
@@ -567,20 +566,21 @@ def make_new_images():
             # split_and_combine_rgb_channels(pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
             pict_to_synth.sources = pict_s[0].fn + ', ' + pict_s[1].fn + ', ' + pict_s[2].fn
             calc_and_store_FN_ExposureTime_ISOSpeed (pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
+            pict_to_synth.Model = 'synthesized'
             log_str = make_new_images_logstr(cnt, pict_to_synth, pict_s)
             log_f.write(log_str)
 
     log_f.close()
-    list_new_images()
+    list_synthesized_images()
 
 #======================================================================
 if __name__ == '__main__':
 
     root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file = get_opts_args()
-    initialize_list_of_pict()
+    initialize_list_of_picts()
 
     # >list_of_pict< and >dict_of_pict< are global
-    cnt_jpg_files = make_list_of_pict_via_EXIF()
+    cnt_jpg_files = make_list_of_picts_via_EXIF()
 
     if do_make_batch_file:
         make_rename_batch_file()
@@ -591,8 +591,8 @@ if __name__ == '__main__':
     if do_make_csv_file:
         make_csv_file()
 
-    cnt_existing_files = print_list_of_pict()
-    cnt_missing_files  = print_list_of_missing_pict()
+    cnt_existing_files = print_list_of_existing_picts()
+    cnt_missing_files  = print_list_of_missing_picts()
     ## print '\n', '{:4d}'.format(cnt_missing_files), ' fehlen. '
 
     if do_make_batch_file:
