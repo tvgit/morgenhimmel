@@ -51,8 +51,6 @@ from PIL import Image
 do_calc_average    = True
 do_calc_average    = False
 do_make_batch_file = False
-do_make_csv_file   = False
-do_make_csv_file   = True
 do_make_new_images = True
 do_make_new_images = False
 
@@ -93,16 +91,13 @@ def get_opts_args():
     quiet = True
     global root_dir
     global do_calc_average
-    global do_make_csv_file
-    global csv_file
-    global csv_f_name
     global do_make_batch_file
     global batch_file
     global batch_f_name
 
     try:
         #  >:< option requires argument
-        opts, args = getopt.getopt(sys.argv[1:], "acbd:hvqs", ["avrge", "csv", "batch", "dir=", "verbose", "quiet", "syn"])
+        opts, args = getopt.getopt(sys.argv[1:], "abd:hvqs", ["avrge", "batch", "dir=", "verbose", "quiet", "syn"])
     except getopt.GetoptError:
         usage(2)
     if not args:
@@ -113,8 +108,6 @@ def get_opts_args():
             do_calc_average = True
         if o in ("-b", "--batch"):
             do_make_batch_file = True
-        if o in ("-c", "--csv"):
-            do_make_csv_file = True
         if o in ("-d", "--dir"):
             root_dir = a
         if o in ("-s", "--syn"):
@@ -142,16 +135,7 @@ def get_opts_args():
             print "'%s' is unwritable\n" % batch_f_name
             sys.exit(2)
 
-    if do_make_csv_file:
-        try:
-            csv_f_name = 'photos_values.csv'
-            csv_f_name = os.path.join(root_dir, csv_f_name)
-            csv_file = open(csv_f_name, 'wb')
-        except:
-            print "'%s' is unwritable\n" % csv_f_name
-            sys.exit(2)
-
-    return root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file
+    return root_dir, quiet, do_calc_average, do_make_batch_file
 
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass(object):
@@ -316,12 +300,10 @@ def make_list_of_picts_via_EXIF():
 
                 if key.find('Model') >= 0:
                     Model = data[key].printable
-                    if Model.find('G1 X'):
+                    if 'G1 X' in Model:
                         Model = 'G1 X'
-                    elif Model.find('G15'):
-                        Model = 'G15'
-
-                    # print 'Model =', Model
+                    if 'G15' in Model:
+                        Model = 'G15 '
 
                 if key.find('FNumber') >= 0:
                     FNumber_str = data[key].printable
@@ -401,28 +383,19 @@ def picts_members_show(list_of_pict):
 
 
 def picts_csv_write(list_of_pict):
+    # >PictClass< erbt von >object< => >pict.__dict__< ist ein dictionary und kann mit >csv.DictWriter< serialisiert werden.
     # http://stackoverflow.com/questions/61517/python-dictionary-from-an-objects-fields
-    # def class_members_to_dict():
-    #     pass
-    # dict_of_pict = list_of_pict.__dict__
     # http://stackoverflow.com/questions/3086973/how-do-i-convert-this-list-of-dictionaries-to-a-csv-file-python
-    fn = make_result_path_fn('result', 'picts.csv')
-    pict = list_of_pict[0]
-    # fieldnames = sorted(pict.__dict__.keys())
-    fieldnames = pict.fieldnames
-
+    fn = make_result_path_fn('result', 'picts.csv')   # fn von csv file
+    pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
+    fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
     with open(fn, 'wb') as csv_file:
-        # fieldnames = ['first_name', 'last_name']
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames )
-        writer.writeheader()
+        writer = csv.DictWriter(csv_file, fieldnames)
+        writer.writeheader()                          # Header = >fieldnames<
         for pict in list_of_pict:
-            print pict.__dict__
-            writer.writerow(pict.__dict__)
-    pprint.pprint(fieldnames)
-
-    # with open(fn, 'wb') as csv_file:
-    #     writer = csv.writer(csv_file, lineterminator='\n', quoting=csv.QUOTE_ALL)
-    #     writer.writerow(list_of_pict.__dict__)
+            # print pict.__dict__
+            writer.writerow(pict.__dict__)            # write values of dictionary: >pict.__dict__<. dictionary!!
+    # pprint.pprint(fieldnames)
 
 
 def picts_csv_read(list_of_pict):
@@ -444,35 +417,6 @@ def make_rename_batch_file():
             batch_str = 'mv %s %s ' % (pict.fn_old , pict.fn)
             batch_file.write(batch_str + '\n')
 
-def make_csv_file():
-    try:
-        csv_f_name = 'photos_values.csv'
-        csv_f_name = os.path.join(root_dir, csv_f_name)
-        csv_file   = open(csv_f_name, 'wb')
-    except:
-        print "'%s' is unwritable\n" % csv_f_name
-        sys.exit(2)
-
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
-    cnt_jpg_files = 0
-    sep = ' ; '
-    for pict in list_of_pict:
-        cnt_jpg_files += 1
-        if cnt_jpg_files == 1:
-            csv_header = 'Datum; fn ; Model; FNumber_str; FNumber; ExpoTime_str; ExpoTime; ISOSpeed; AverageGray; Sources; \n'
-            csv_file.write(csv_header)
-        csv_str  = pict.datum + sep + pict.fn + sep + pict.Model + sep
-        csv_str += pict.FNumber_str + sep + pict.FNumber + sep
-        # csv_str += '{:06.2f}'.format(pict.ExpoTime) + sep
-        csv_str += pict.ExpoTime_str + sep
-        csv_str += str(pict.ExpoTime) + sep
-        csv_str += pict.ISOSpeed + sep
-        csv_str += str(pict.av_gray) + sep
-        csv_str += str(pict.sources) + sep
-        csv_str += '\n'
-        csv_file.write(csv_str)
-    csv_file.close()
-
 def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
@@ -484,8 +428,9 @@ def calc_average_graylevel():
 
 def calc_model_type_picts():
     # calc's number of images per model
-    dict_model_cnt = {}
-    list_of_pict.sort(key=attrgetter('Model', 'datum'))
+    dict_model_cnt = {}   # {model:cnt}
+    list_of_pict.sort(key=attrgetter('Model', 'datum')) # sort list_of_pict
+
     for pict in list_of_pict:
         if pict.Model not in dict_model_cnt.keys():
             dict_model_cnt[pict.Model] = 1
@@ -638,7 +583,7 @@ def make_new_images():
 #======================================================================
 if __name__ == '__main__':
 
-    root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file = get_opts_args()
+    root_dir, quiet, do_calc_average, do_make_batch_file = get_opts_args()
     initialize_list_of_picts()
 
     # >list_of_pict< is global
@@ -672,10 +617,6 @@ if __name__ == '__main__':
 
     if do_calc_average:
         calc_average_graylevel()
-
-    if do_make_csv_file:
-        make_csv_file()
-
 
     # print_all_existing_picts()
 
