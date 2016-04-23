@@ -56,7 +56,6 @@ root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
 root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle_001'
 synth_image_dir = 'synth_images'
 
-dict_of_pict = {}
 list_of_pict = []
 
 List_FNumber  = []
@@ -158,7 +157,7 @@ class PictClass():
         self.Make        = 'rh'
         self.Model       = 'ToDo'
         self.date        = ''
-        self.fn          = ''
+        self.fn          = datum + '_' + '0900_IMG_rh.JPG'
         self.fn_old      = '0900_IMG_rh.JPG'         # default
         self.path_fn     = ''
         self.FNumber_str = ''
@@ -238,7 +237,7 @@ def print_list_of_missing_picts():
     return cnt_files
 
 def initialize_list_of_picts():
-    # >list_of_pict< and >dict_of_pict< are global
+    # >list_of_pict< is global
     global cnt_days
     date1   = '2013_04_07'
     date2   = '2014_08_16'
@@ -251,12 +250,11 @@ def initialize_list_of_picts():
         act_day_str = act_day.date().strftime('%Y_%m_%d')  # Formatieren
         pict = PictClass(act_day_str)
         list_of_pict.append(pict)
-        dict_of_pict.update({act_day_str : pict})
         act_day  += step
         cnt_days +=  1
 
 def make_list_of_picts_via_EXIF():
-    # >list_of_pict< and >dict_of_pict< are global
+    # >list_of_pict< is global
     stop_tag = 'UNDEF'
     reg_hhmm  = re.compile(r"^\d{4}_[A-Za-z]")
     reg_YMDHm = make_regex_YMDHm_word()#
@@ -343,11 +341,10 @@ def make_list_of_picts_via_EXIF():
                         new_f_name = YMDHm_prefix + '_' + f_name
 
             # f_name = basename(path_f_name)
-            pict = dict_of_pict[Y_M_D_prefix]
-            # pict.datum    = datum
+            # find pict in list_of_pict with pict.datum == Y_M_D_prefix
+            pict = next((x for x in list_of_pict if x.datum == Y_M_D_prefix), None)
             if pict.date:
-                print '!!! >>>> ', pict.date, '!!! >>>> '
-                pass
+                print '!!! >>>> ', pict.date, ' exists ! <<<< '
             else:
                 pict.date        = Y_M_D_prefix
                 pict.Make        = Make
@@ -363,19 +360,10 @@ def make_list_of_picts_via_EXIF():
                 pict.ISOSpeed    = ISOSpeed
                 pict.av_gray     = 99
 
-
     cnt_jpg_files = 0
     for pict in list_of_pict:
-        if pict.Make != 'rh':
+        if pict.Model != 'ToDo':  # == missing image == to be synthesized
             cnt_jpg_files += 1
-
-    for pict in list_of_pict:
-        if pict.Model == 'ToDo':  # == missing images == to be synthesized
-            pict.fn = pict.datum + '_' + pict.fn_old
-            pict.date = pict.datum
-            pict.Make = 'rh'
-            pict.Model = 'ToDo'
-
     return cnt_jpg_files
 
 def make_rename_batch_file():
@@ -421,9 +409,10 @@ def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     for pict in list_of_pict:
-        image = Image.open(pict.fn).convert('L')
-        im_np_array = np.array(image)
-        pict.pict.av_gray = np.average(im_np_array)
+        if pict.Model != 'ToDo':  # == missing image == to be synthesized
+            image = Image.open(pict.fn).convert('L')
+            im_np_array = np.array(image)
+            pict.av_gray = np.average(im_np_array)
 
 def calc_model_type_picts():
     # calc's number of images per model
@@ -455,7 +444,10 @@ def split_and_combine_rgb_channels(pict_new, pict_1, pict_2, pict_3):
     im = Image.open(os.path.join(root_dir, pict_3.fn))
     r, g, blue = im.split()
     im.close()
-    img = Image.merge("RGB", (red, green, blue))
+
+    # img = Image.merge("RGB", (red, green, blue))
+    attenuated_red = red.point(lambda i: i * 0.85)      # attenuate red channel
+    img = Image.merge("RGB", (attenuated_red, green, blue))
     img.save((os.path.join(root_dir, synth_image_dir, pict_new.fn)))
 
 def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
@@ -563,14 +555,20 @@ def make_new_images():
                 pict_s.append(l_pict)
 
             # print (log_str)
-            # split_and_combine_rgb_channels(pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
+            # synthesize image:
+            split_and_combine_rgb_channels(pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
+            # store names of source images:
             pict_to_synth.sources = pict_s[0].fn + ', ' + pict_s[1].fn + ', ' + pict_s[2].fn
+            # calc virtual FNumber, ExposureTime and ISOSpeed of synthesized image
             calc_and_store_FN_ExposureTime_ISOSpeed (pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
+            # mark it as synthesized image
             pict_to_synth.Model = 'synthesized'
+            # compose log_str and write it to file
             log_str = make_new_images_logstr(cnt, pict_to_synth, pict_s)
             log_f.write(log_str)
 
     log_f.close()
+    # show what you've done
     list_synthesized_images()
 
 #======================================================================
@@ -579,17 +577,11 @@ if __name__ == '__main__':
     root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file = get_opts_args()
     initialize_list_of_picts()
 
-    # >list_of_pict< and >dict_of_pict< are global
+    # >list_of_pict< is global
     cnt_jpg_files = make_list_of_picts_via_EXIF()
 
     if do_make_batch_file:
         make_rename_batch_file()
-
-    if do_calc_average:
-        av_gray = calc_average_graylevel()
-
-    if do_make_csv_file:
-        make_csv_file()
 
     cnt_existing_files = print_list_of_existing_picts()
     cnt_missing_files  = print_list_of_missing_picts()
@@ -613,6 +605,12 @@ if __name__ == '__main__':
         print "\n"
         make_new_images()
         print "\n"
+
+    if do_calc_average:
+        calc_average_graylevel()
+
+    if do_make_csv_file:
+        make_csv_file()
 
     print "\n> end"
 # print ">", cnt_files, "files in directory \n"
