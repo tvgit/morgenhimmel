@@ -8,7 +8,7 @@
 # Version um:
 # 1. die Morgenphotos umzubenennen: YYYY_MM_DD_HH_mm_SS_IMGxxxx.jpg
 # 2. Belichtungszeit, FNumber und ISOSpeed zu extrahieren
-# 3. CSV File zu erstellen mit fn, Uhrzeit, ExpsTime, F und ISOSpeed
+# 3. CSV File zu erstellen mit fn, Uhrzeit, ExpoTime, F und ISOSpeed
 # 4. Fehlende Bilder ersetzen (496 = 2**4  * 31)  # 497 möglich
 #
 # Output:
@@ -36,6 +36,7 @@ import random
 import re
 import sys
 from operator import itemgetter, attrgetter, methodcaller
+from fractions import Fraction
 
 import exifread
 # https://books.google.de/books?id=YRHSCgAAQBAJ&pg=PA96&lpg=PA96&dq=pil+average+grayscale&source=bl&ots=tsJ8nbYvua&sig=OHKPOAlTMV08S-p5jS-t_RacTS0&hl=de&sa=X&ved=0ahUKEwjrxo2I2JHMAhWEJhoKHY_rB0cQ6AEIRzAE#v=onepage&q=pil%20average%20grayscale&f=false
@@ -57,6 +58,15 @@ synth_image_dir = 'synth_images'
 
 dict_of_pict = {}
 list_of_pict = []
+
+List_FNumber  = []
+List_ExpoTime = []
+List_ISOSpeed = []
+
+List_FNumber_float  = []
+List_ExpoTime_float = []
+List_ISOSpeed_float = []
+
 
 # show command line usage
 def usage(exit_status):
@@ -153,14 +163,15 @@ class PictClass():
         self.path_fn     = ''
         self.FNumber_str = ''
         self.FNumber     = ''
-        self.ExpsTime    = ''
+        self.ExpoTime_str= ''
+        self.ExpoTime    = ''
         self.ISOSpeed    = ''
         self.av_gray     = '99'
         self.sources     = ''
 
     def __repr__(self):
         # return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
-        return '"%s"*13' % ( \
+        return '"%s"*14' % ( \
         self.datum , \
         self.Make , \
         self.Model , \
@@ -170,7 +181,8 @@ class PictClass():
         self.path_fn , \
         self.FNumber_str , \
         self.FNumber , \
-        self.ExpsTime , \
+        self.ExpoTime_str , \
+        self.ExpoTime , \
         self.ISOSpeed , \
         self.av_gray , \
         self.sources )
@@ -298,6 +310,8 @@ def make_list_of_pict_via_EXIF():
                         counter = FNumber_str[:pos_slash]
                         denominator = FNumber_str[pos_slash + 1:]
                         FNumber = str(float(counter) / float(denominator))
+                    else:
+                        FNumber = str(float(FNumber_str))
                         # print 'FNumber =', FNumber
 
                 if key.find('ExposureTime') >= 0:
@@ -336,17 +350,19 @@ def make_list_of_pict_via_EXIF():
                 print '!!! >>>> ', pict.date, '!!! >>>> '
                 pass
             else:
-                pict.date     = Y_M_D_prefix
-                pict.Make     = Make
-                pict.Model    = Model
-                pict.fn       = new_f_name
-                pict.fn_old   = f_name
+                pict.date        = Y_M_D_prefix
+                pict.Make        = Make
+                pict.Model       = Model
+                pict.fn          = new_f_name
+                pict.fn_old      = f_name
                 # pict.path_fn = new_path_f_name
-                pict.path_fn  = ''
-                pict.FNumber  = FNumber
-                pict.ExpsTime = ExposureTime_float
-                pict.ISOSpeed = ISOSpeed
-                pict.av_gray  = 99
+                pict.path_fn     = ''
+                pict.FNumber_str = FNumber_str
+                pict.FNumber     = FNumber
+                pict.ExpoTime_str= ExposureTime
+                pict.ExpoTime    = ExposureTime_float # ExposureTime
+                pict.ISOSpeed    = ISOSpeed
+                pict.av_gray     = 99
 
 
     cnt_jpg_files = 0
@@ -372,23 +388,34 @@ def make_rename_batch_file():
             batch_file.write(batch_str + '\n')
 
 def make_csv_file():
+    try:
+        csv_f_name = 'photos_values.csv'
+        csv_f_name = os.path.join(root_dir, csv_f_name)
+        csv_file   = open(csv_f_name, 'wb')
+    except:
+        print "'%s' is unwritable\n" % csv_f_name
+        sys.exit(2)
+
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     cnt_jpg_files = 0
     sep = ' ; '
     for pict in list_of_pict:
         cnt_jpg_files += 1
         if cnt_jpg_files == 1:
-            csv_header = 'Datum; fn ; Model; FNumber_str; FNumber; ExpoTime, ISOSpeed, AverageGray, Merge'
+            csv_header = 'Datum; fn ; Model; FNumber_str; FNumber; ExpoTime_str; ExpoTime; ISOSpeed; AverageGray; Sources; \n'
             csv_file.write(csv_header)
         csv_str  = pict.datum + sep + pict.fn + sep + pict.Model + sep
         csv_str += pict.FNumber_str + sep + pict.FNumber + sep
-        # csv_str += '{:06.2f}'.format(pict.ExpsTime) + sep
-        csv_str += str(pict.ExpsTime) + sep
+        # csv_str += '{:06.2f}'.format(pict.ExpoTime) + sep
+        csv_str += pict.ExpoTime_str + sep
+        csv_str += str(pict.ExpoTime) + sep
         csv_str += pict.ISOSpeed + sep
         csv_str += str(pict.av_gray) + sep
         csv_str += str(pict.sources) + sep
         csv_str += '\n'
         csv_file.write(csv_str)
+    csv_file.close()
+
         # print '>>>>', csv_str
 
 def calc_average_graylevel():
@@ -446,9 +473,21 @@ def split_and_combine_rgb_channels(pict_new, pict_1, pict_2, pict_3):
     img.save((os.path.join(root_dir, synth_image_dir, pict_new.fn)))
 
 def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
-    sum_FNumber  = pict_1.FNumber + pict_2.FNumber + pict_3.FNumber
-    sum_ExpsTime = pict_1.ExpsTime + pict_2.ExpsTime + pict_3.ExpsTime
-    sum_ISOSpeed = pict_1.ISOSpeed + pict_2.ISOSpeed + pict_3.ISOSpeed
+    global List_FNumber
+    global List_ExpoTime
+    global List_ISOSpeed
+
+    global List_FNumber_float
+    global List_ExpoTime_float
+    global List_ISOSpeed_float
+
+    average_FNumber   = (float(pict_1.FNumber) + float(pict_2.FNumber) + float(pict_3.FNumber)) / 3
+    average_ExpoTime  = (float(pict_1.ExpoTime) + float(pict_2.ExpoTime) + float(pict_3.ExpoTime)) / 3
+    average_ISOSpeed  = (float(pict_1.ISOSpeed) + float(pict_2.ISOSpeed) + float(pict_3.ISOSpeed)) / 3
+
+    # val, idx = min((val, idx) for (idx, val) in enumerate(my_list))
+    list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumber_float)
+    val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_FNumber))
     pass
 
 def make_new_images_logstr (cnt, new_pict, pict_s):
@@ -460,9 +499,30 @@ def make_new_images_logstr (cnt, new_pict, pict_s):
     return log_str
 
 def make_new_images():
+    # following _global_ lists are used in >def calc_and_store_FN_ExposureTime_ISOSpeed<
+    #   to calc FN_ExposureTime_ISOSpeed values
+    global List_FNumber
+    global List_ExpoTime
+    global List_ISOSpeed
+    List_FNumber = ["1.4", "1.8", "2", "2.2", "2.4", "2.8", "3.2", "3.5", "4", "4.5", "5", "5.6", "6.3", "6.5", "7.1",
+                    "8", "9.5", "10", "11", "13", "16", "19", "22"]
+    List_ExpoTime = ["1/1000", "1/500", "1/250", "1/125", "1/60", "1/30", "1/15", "1/8", "1/4", "1/2", "1"]
+    List_ISOSpeed = ["25", "50", "64", "100", "200", "400", "800", "1600", "3200", "6400", "12800", "25600", "51200",
+                     "102400", "204800"]
+
+    global List_FNumber_float
+    global List_ExpoTime_float
+    global List_ISOSpeed_float
+    List_FNumber_float = list(float(Fraction(x)) for x in List_FNumber)
+    List_ExpoTime_float = list(float(Fraction(x)) for x in List_ExpoTime)
+    List_ISOSpeed_float = list(float(Fraction(x)) for x in List_ISOSpeed)
+
     # synth images:
     # a) combine r,g,b channels from 3 different images of _same_ camera model (to conserve dimensions, geometry etc)
     # b) relation of camera model of new images reflects relation of camera models of existing images
+    # c) o calc FN_ExposureTime_ISOSpeed values by calling function
+    # d) log all
+    #
     list_model_cnt = calc_model_type_picts()    # list: how many img's from which camera model ?
     iter_list_model_cnt = iter(list_model_cnt)  # convert list to iterator
     model, cnt_g1X = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  first  model (G1 X)
@@ -518,7 +578,6 @@ if __name__ == '__main__':
 
     if do_make_csv_file:
         make_csv_file()
-        csv_file.close()
 
     cnt_existing_files = print_list_of_pict()
     cnt_missing_files  = print_list_of_missing_pict()
