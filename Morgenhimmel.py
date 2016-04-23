@@ -47,6 +47,7 @@ do_calc_average    = False
 do_make_batch_file = False
 do_make_csv_file   = False
 do_make_csv_file   = True
+do_make_new_images = False
 
 dict_of_pict = {}
 list_of_pict = []
@@ -62,6 +63,7 @@ def usage(exit_status):
     msg += '  -v --verbose  verbose.\n'
     msg += '  -a --avrge    calc average gray value.\n'
     msg += '  -d --dir=     directory.\n'
+    msg += '  -s --syn      synthesize new images\n'
     msg += '  -q --quiet    quiet (default)\n'
     msg += '\n'
     print msg
@@ -81,7 +83,7 @@ def get_opts_args():
 
     try:
         #  >:< option requires argument
-        opts, args = getopt.getopt(sys.argv[1:], "acbd:hvq", ["--avrge", "csv", "batch", "dir=", "verbose", "quiet"])
+        opts, args = getopt.getopt(sys.argv[1:], "acbd:hvqs", ["avrge", "csv", "batch", "dir=", "verbose", "quiet", "syn"])
     except getopt.GetoptError:
         usage(2)
     if not args:
@@ -96,6 +98,8 @@ def get_opts_args():
             do_make_csv_file = True
         if o in ("-d", "--dir"):
             root_dir = a
+        if o in ("-s", "--syn"):
+            do_make_new_images = True
         if o in ("-w", "--write_files"):
             do_write_files = True
         if o in ("-h", "--help"):
@@ -201,16 +205,17 @@ def print_list_of_pict():
         # pprint.pprint(pict)
         if pict.Model != 'rh':
             cnt_files += 1
-            print '{:4d}'.format(cnt_files), pict
+            # print '{:4d}'.format(cnt_files), pict
         else:
             print '    ', pict
+            pass
     return cnt_files
 
 def print_list_of_missing_pict():
     cnt_files = 0
     for pict in list_of_pict:
         if pict.Make == 'rh':
-            print(pict)
+            # print(pict)
             cnt_files += 1
     return cnt_files
 
@@ -245,7 +250,7 @@ def make_list_of_pict_via_EXIF():
         ext = os.path.splitext(path_f_name)[-1].lower()
         if ext == ".jpg":
             cnt_jpg_files += 1
-            print '\n', '{:4d}'.format(cnt_jpg_files), ': ', f_name
+            # print '\n', '{:4d}'.format(cnt_jpg_files), ': ', f_name
 
             new_f_name = '*'
             new_path_f_name = '*'
@@ -272,35 +277,35 @@ def make_list_of_pict_via_EXIF():
 
                 if key.find('Make') >= 0:
                     Make = data[key].printable  # Manufacturer
-                    print 'Make =', Make
+                    # print 'Make =', Make
 
                 if key.find('Model') >= 0:
                     Model = data[key].printable
-                    print 'Model =', Model
+                    # print 'Model =', Model
 
                 if key.find('FNumber') >= 0:
                     FNumber_str = data[key].printable
-                    print 'FNumber =', FNumber_str
+                    # print 'FNumber =', FNumber_str
                     pos_slash = FNumber_str.find('/')
                     if pos_slash > 0:
                         counter = FNumber_str[:pos_slash]
                         denominator = FNumber_str[pos_slash + 1:]
                         FNumber = str(float(counter) / float(denominator))
-                        print 'FNumber =', FNumber
+                        # print 'FNumber =', FNumber
 
                 if key.find('ExposureTime') >= 0:
                     ExposureTime = data[key].printable
-                    print 'ExposureTime =', ExposureTime,
+                    # print 'ExposureTime =', ExposureTime,
                     pos_slash = ExposureTime.find('/')
                     if pos_slash > 0:
                         z = ExposureTime[:pos_slash]
                         n = ExposureTime[pos_slash + 1:]
                         ExposureTime_float = float(z) / float(n)
-                    print '= ', ExposureTime_float
+                    # print '= ', ExposureTime_float
 
                 if key.find('ISOSpeed') >= 0:
                     ISOSpeed = data[key].printable
-                    print 'ISOSpeed =', ISOSpeed
+                    # print 'ISOSpeed =', ISOSpeed
 
                 if key.find('DateTimeOriginal') >= 0:
                     date_time_str = data[key].printable
@@ -376,10 +381,10 @@ def make_csv_file():
         csv_str += str(pict.av_gray) + sep
         csv_str += '\n'
         csv_file.write(csv_str)
-        print '>>>>', csv_str
+        # print '>>>>', csv_str
 
 def calc_average_graylevel():
-    print '>>>>>>>> calc_average_graylevel():'
+    # print '>>>>>>>> calc_average_graylevel():'
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     for pict in list_of_pict:
         image = Image.open(pict.fn).convert('L')
@@ -445,7 +450,7 @@ def make_new_images():
                 low  = cnt_g1X
                 high = cnt_g1X + cnt_g15 - 1
 
-            print 'pict.fn = ', pict.fn
+            # print 'pict.fn = ', pict.fn
             fn_img_new = make_result_path(res_dir, pict.fn )
 
             idx = int(round(random.uniform(low, high)))
@@ -462,7 +467,7 @@ def make_new_images():
             mod_3  = list_of_pict[idx].Model
             fn_3   = list_of_pict[idx].fn
             p_fn_3 = make_result_path('', fn_3)
-            print fn_img_new, fn_1, fn_2, fn_3
+            # print fn_img_new, fn_1, fn_2, fn_3
             log_f.write (str(cnt) + ' ; ' + fn_img_new + ' ; ')
             log_f.write (mod_1 + ' ; '  + fn_1 + ' ; ')
             log_f.write (mod_2 + ' ; '  + fn_2 + ' ; ')
@@ -471,12 +476,9 @@ def make_new_images():
             split_and_combine_rgb_channels(fn_img_new, p_fn_1, p_fn_2, p_fn_3)
 
     log_f.close()
-    print cut, cnt_g1X, cnt_g15, list_of_pict[cnt_g1X - 1].fn
-
-
+    # print cut, cnt_g1X, cnt_g15, list_of_pict[cnt_g1X - 1].fn
 
 #======================================================================
-
 if __name__ == '__main__':
 
     root_dir, quiet, do_calc_average, do_make_batch_file, do_make_csv_file = get_opts_args()
@@ -507,7 +509,9 @@ if __name__ == '__main__':
     print ">", cnt_days, "days in total"
     print ">", cnt_existing_files, "files in directory \n"
     print ">", cnt_jpg_files, "jpg files in directory \n"
-    make_new_images()
+    if do_make_new_images:
+        make_new_images()
+
     list_model_cnt = calc_model_type_picts()
     for model, cnt in list_model_cnt:
         print model + ':', cnt
