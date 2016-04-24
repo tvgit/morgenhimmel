@@ -213,16 +213,16 @@ def make_regex_YMDHm_word():
     # if m: print 'ok'
     return rgx
 
-def print_list_of_existing_picts():
+def print_list_of_existing_picts(list_of_pict=list_of_pict):
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     cnt_files = 0
     for pict in list_of_pict:
         # pprint.pprint(pict)
         if pict.Model != 'ToDo':
             cnt_files += 1
-            # print '{:4d}'.format(cnt_files), pict
+            print '{:4d}'.format(cnt_files), pict
         else:
-            # print 'Model = rh: ', pict
+            print 'Model = rh: ', pict
             pass
     return cnt_files
 
@@ -375,12 +375,11 @@ def make_list_of_picts_via_EXIF():
 def make_result_path_fn (dir, fn):
     return os.path.join(root_dir,dir, fn)
 
-def picts_members_show(list_of_pict):
+def picts_show_class_members(list_of_pict):
     for pict in list_of_pict:
         print '\n -------------- \n'
         for k, v in vars(pict).items():
             print 'k= ', k, 'v= ', v
-
 
 def picts_csv_write(list_of_pict):
     # >PictClass< erbt von >object< => >pict.__dict__< ist ein dictionary und kann mit >csv.DictWriter< serialisiert werden.
@@ -398,16 +397,30 @@ def picts_csv_write(list_of_pict):
     # pprint.pprint(fieldnames)
 
 
-def picts_csv_read(list_of_pict):
+class AllMyFields:
+    def __init__(self, dictionary):
+        for k, v in dictionary.items():
+            setattr(self, k, v)
+
+def picts_csv_read():
+    # SilentGhost' answer:
+    # http://stackoverflow.com/questions/1639174/creating-class-instance-properties-from-a-dictionary-in-python
     fn = make_result_path_fn('result', 'picts.csv')
+    new_list_of_pict = []
     with open(fn, 'r') as csv_file:
-        # reader = csv.reader(csv_file, lineterminator='\n', quoting=csv.QUOTE_ALL)
-        reader = csv.reader(csv_file)
-        for row in reader:
-            print '\n-> ', row
+        reader = csv.DictReader(csv_file)
+        for pict_dict in reader:
+            print pict_dict          # is a dict
+            pict_obj = AllMyFields(pict_dict)
+            # pct  = type('allMyFields', (object,), pct) # should be object
+            new_list_of_pict.append(pict_obj)
+        # for row in reader:
+        #     for column, value in row.iteritems():
+        #         result.setdefault(column, []).append(value)
+        # print result
         # writer = csv.writer(csv_file, lineterminator='\n')
         # writer.writerows(list_of_pict)
-
+    return new_list_of_pict
 
 def make_rename_batch_file():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
@@ -620,10 +633,16 @@ if __name__ == '__main__':
 
     # print_all_existing_picts()
 
-    # picts_members_show(list_of_pict)
+    # picts_show_class_members(list_of_pict)
 
     picts_csv_write(list_of_pict)
-    # picts_csv_read(list_of_pict)
+    print '#################################################\n'*3
+    new_list_of_pict = picts_csv_read()
+    print '#222222222222222222222222222222222222222222222222#\n'*3
+    print type (new_list_of_pict[0])
+    print '#333333333333333333333333333333333333333333333333#\n'*3
+    cnt_existing_files = print_list_of_existing_picts(new_list_of_pict)
+
 
     print "\n> end"
 # print ">", cnt_files, "files in directory \n"
