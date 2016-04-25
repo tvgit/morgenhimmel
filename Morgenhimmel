@@ -139,22 +139,31 @@ def get_opts_args():
 
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass(object):
-    def __init__(self, datum):
-        self.datum       = datum
-        self.date        = ''
-        self.Make        = 'rh'
-        self.Model       = 'ToDo'
-        self.date        = ''
-        self.fn          = datum + '_' + '0900_IMG_rh.JPG'
-        self.fn_old      = '0900_IMG_rh.JPG'         # default
-        self.path_fn     = ''
-        self.FNumber_str = ''
-        self.FNumber     = ''
-        self.ExpoTime_str= ''
-        self.ExpoTime    = ''
-        self.ISOSpeed    = ''
-        self.av_gray     = '99'
-        self.sources     = ''
+    def __init__(self, param):
+        if type (param) == str: # param == datum
+            datum = param
+            self.datum       = datum
+            self.date        = ''
+            self.Make        = 'rh'
+            self.Model       = 'ToDo'
+            self.date        = ''
+            self.fn          = datum + '_' + '0900_IMG_rh.JPG'
+            self.fn_old      = '0900_IMG_rh.JPG'         # default
+            self.path_fn     = ''
+            self.FNumber_str = ''
+            self.FNumber     = ''
+            self.ExpoTime_str= ''
+            self.ExpoTime    = ''
+            self.ISOSpeed    = ''
+            self.av_gray     = '99'
+            self.sources     = ''
+        elif type (param) == dict:
+            dct = param
+            for k, v in dct.items():
+                setattr(self, k, v)
+        else:
+            print '>pict< cannot be initialized with type: >' + type(param) + '< .'
+            sys.exit(2)
 
     def __repr__(self):
         # return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
@@ -220,9 +229,11 @@ def print_list_of_existing_picts(list_of_pict=list_of_pict):
         # pprint.pprint(pict)
         if pict.Model != 'ToDo':
             cnt_files += 1
-            print '{:4d}'.format(cnt_files), pict
+            if not quiet:
+                print '{:4d}'.format(cnt_files), pict
         else:
-            print 'Model = rh: ', pict
+            if not quiet:
+                print 'Model = rh: ', pict
             pass
     return cnt_files
 
@@ -397,29 +408,18 @@ def picts_csv_write(list_of_pict):
     # pprint.pprint(fieldnames)
 
 
-class AllMyFields:
-    def __init__(self, dictionary):
-        for k, v in dictionary.items():
-            setattr(self, k, v)
-
 def picts_csv_read():
-    # SilentGhost' answer:
+    # (SilentGhost' answer is helpfull) but here we use _existing_ class -> simply adapt __init__
     # http://stackoverflow.com/questions/1639174/creating-class-instance-properties-from-a-dictionary-in-python
     fn = make_result_path_fn('result', 'picts.csv')
     new_list_of_pict = []
     with open(fn, 'r') as csv_file:
         reader = csv.DictReader(csv_file)
         for pict_dict in reader:
-            print pict_dict          # is a dict
-            pict_obj = AllMyFields(pict_dict)
-            # pct  = type('allMyFields', (object,), pct) # should be object
-            new_list_of_pict.append(pict_obj)
-        # for row in reader:
-        #     for column, value in row.iteritems():
-        #         result.setdefault(column, []).append(value)
-        # print result
-        # writer = csv.writer(csv_file, lineterminator='\n')
-        # writer.writerows(list_of_pict)
+            if not quiet:
+                print pict_dict          # is a dict
+            pict = PictClass(pict_dict)
+            new_list_of_pict.append(pict)
     return new_list_of_pict
 
 def make_rename_batch_file():
@@ -632,17 +632,11 @@ if __name__ == '__main__':
         calc_average_graylevel()
 
     # print_all_existing_picts()
-
     # picts_show_class_members(list_of_pict)
 
     picts_csv_write(list_of_pict)
-    print '#################################################\n'*3
     new_list_of_pict = picts_csv_read()
-    print '#222222222222222222222222222222222222222222222222#\n'*3
-    print type (new_list_of_pict[0])
-    print '#333333333333333333333333333333333333333333333333#\n'*3
     cnt_existing_files = print_list_of_existing_picts(new_list_of_pict)
-
 
     print "\n> end"
 # print ">", cnt_files, "files in directory \n"
