@@ -245,9 +245,9 @@ def print_all_existing_picts():
 def print_list_of_missing_picts():
     cnt_files = 0
     for pict in list_of_pict:
-        if pict.Make == 'ToDo':
-            # print(pict)
+        if pict.Model == 'ToDo':
             cnt_files += 1
+            print str(cnt_files) + ': ', pict
     return cnt_files
 
 def initialize_list_of_picts():
