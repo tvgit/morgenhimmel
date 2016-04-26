@@ -209,18 +209,18 @@ def make_regex_YMDHm_word():
 
 def print_list_of_existing_picts(list_of_pict=list_of_pict):
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
-    cnt_files = 0
+    cnt_picts = 0
     for pict in list_of_pict:
         # pprint.pprint(pict)
         if pict.Model != 'ToDo':
-            cnt_files += 1
+            cnt_picts += 1
             if not quiet:
-                print '{:4d}'.format(cnt_files), pict
+                print '{:4d}'.format(cnt_picts), pict
         else:
             if not quiet:
                 print 'Model = rh: ', pict
             pass
-    return cnt_files
+    return cnt_picts
 
 def print_all_existing_picts():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
@@ -228,12 +228,12 @@ def print_all_existing_picts():
         pprint.pprint(pict)
 
 def print_list_of_missing_picts():
-    cnt_files = 0
+    cnt_picts = 0
     for pict in list_of_pict:
         if pict.Model == 'ToDo':
-            cnt_files += 1
-            print str(cnt_files) + ': ', pict
-    return cnt_files
+            cnt_picts += 1
+            print str(cnt_picts) + ': ', pict
+    return cnt_picts
 
 def initialize_list_of_picts():
     # >list_of_pict< is global
@@ -265,7 +265,7 @@ def make_list_of_picts_via_EXIF():
         ext = os.path.splitext(path_f_name)[-1].lower()
         if ext == ".jpg":
             cnt_jpg_files += 1
-            # print '\n', '{:4d}'.format(cnt_jpg_files), ': ', f_name
+            # print '\n', '{:4d}'.format(cnt_jpg_picts), ': ', f_name
 
             new_f_name = '*'
             new_path_f_name = '*'
@@ -408,20 +408,25 @@ def picts_csv_read():
 
 def make_rename_batch_file():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    cnt_picts = 0
     for pict in list_of_pict:
         # new_path_f_name = os.path.join(root, pict.new_f_name)
-        if pict.Make != 'rh':
+        if (pict.Make != 'rh') and (pict.fn_old != pict.fn):
+            cnt_picts += 1
             batch_str = 'mv %s %s ' % (pict.fn_old , pict.fn)
             batch_file.write(batch_str + '\n')
+    return cnt_picts
+
+save image params
 
 def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     for pict in list_of_pict:
-        if pict.Model != 'ToDo':  # == missing image == to be synthesized
-            image = Image.open(pict.fn).convert('L')
-            im_np_array = np.array(image)
-            pict.av_gray = np.average(im_np_array)
+        # if pict.Model !=
+        image = Image.open(pict.fn).convert('L')
+        im_np_array = np.array(image)
+        pict.av_gray = np.average(im_np_array)
 
 def calc_model_type_picts():
     # calc's number of images per model
@@ -578,16 +583,17 @@ def make_new_images():
     list_synthesized_images()
 
 #======================================================================
-do_calc_average     = True
-do_calc_average     = False
-do_make_rename_file = False
-do_make_new_images  = True
-do_make_new_images  = False
-
 root_dir        = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
 root_dir        = 'D:\Data_Work\Other_Data\Morgen_Himmel\_Morgen_Himmel_alle_001'
 synth_image_dir = 'synth_images'
 synth_image_dir = ''
+
+do_make_rename_file = False
+do_make_new_images  = True
+# do_make_new_images  = False
+
+do_calc_average     = True
+# do_calc_average     = False
 
 
 if __name__ == '__main__':
@@ -595,24 +601,21 @@ if __name__ == '__main__':
     initialize_list_of_picts()
 
     # >list_of_pict< is global
-    cnt_jpg_files = make_list_of_picts_via_EXIF()
+    cnt_jpg_picts      = make_list_of_picts_via_EXIF()
+    cnt_existing_picts = print_list_of_existing_picts()
+    cnt_missing_picts  = print_list_of_missing_picts()
+    ## print '\n', '{:4d}'.format(cnt_missing_picts), ' fehlen. '
 
     if do_make_rename_file:
-        make_rename_batch_file()
-
-    cnt_existing_files = print_list_of_existing_picts()
-    cnt_missing_files  = print_list_of_missing_picts()
-    ## print '\n', '{:4d}'.format(cnt_missing_files), ' fehlen. '
-
-    if do_make_rename_file:
-        print "\n\n>" + batch_f_name + "< written. ", cnt_files, "files to rename\n"
+        cnt_picts_to_rename = make_rename_batch_file()
+        print "\n\n>" + batch_f_name + "< written. ", cnt_picts_to_rename, "files to rename\n"
         batch_file.close()
 
     print "\n\n"
     print ">", cnt_days, "days in total"
-    print ">", cnt_existing_files, "files in directory \n"
-    print ">", cnt_jpg_files, "jpg files in directory \n"
-    print ">", cnt_missing_files,  "missing files in directory \n"
+    print ">", cnt_jpg_picts,      "jpg files in directory \n"
+    print ">", cnt_existing_picts, "files in directory \n"
+    print ">", cnt_missing_picts,  "missing files in directory \n"
 
     list_model_cnt = calc_model_type_picts()
     for model, cnt in list_model_cnt:
@@ -631,7 +634,6 @@ if __name__ == '__main__':
 
     picts_csv_write(list_of_pict)
     new_list_of_pict = picts_csv_read()
-    cnt_existing_files = print_list_of_existing_picts(new_list_of_pict)
+    cnt_existing_picts = print_list_of_existing_picts(new_list_of_pict)
 
     print "\n> end"
-# print ">", cnt_files, "files in directory \n"
