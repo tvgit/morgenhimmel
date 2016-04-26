@@ -417,7 +417,7 @@ def make_rename_batch_file():
             batch_file.write(batch_str + '\n')
     return cnt_picts
 
-save image params
+
 
 def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
@@ -625,6 +625,10 @@ if __name__ == '__main__':
         print "\n"
         make_new_images()
         print "\n"
+
+    save
+    image
+    params
 
     if do_calc_average:
         calc_average_graylevel()
