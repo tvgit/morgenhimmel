@@ -17,19 +17,16 @@
 #
 # https://pypi.python.org/pypi/ExifRead
 #
-## TODO list of pictures:
 ## Für jedes Bild soll ein Objekt (iS eines -> data members) angelegt werden, das in einer Liste landet.
 ## Listen von Data member kann man auch gut sortieren:
 ##   http://stackoverflow.com/questions/403421/how-to-sort-a-list-of-objects-in-python-based-on-an-attribute-of-the-objects
 ## Dicts und Listen von DIcts kann man auch gut sortieren:
 ## https://wiki.python.org/moin/HowTo/Sorting  -> 'itemgetter' !!
 ##
-## TODO serialization of class members
-## http://www.ibm.com/developerworks/library/l-pypers/
-##
-## TODO dummy Bilder für die fehlenden Bilder erzeugen:
+## TODO list of pictures:
+## stich pic's together
+## http://stackoverflow.com/questions/10657383/stitching-photos-together
 ## Geht mit pil
-## TODO mit pickle die Liste der pict sichern:
 
 import csv
 import datetime
@@ -48,25 +45,14 @@ import exifread
 import numpy as np
 from PIL import Image
 
-do_calc_average    = True
-do_calc_average    = False
-do_make_batch_file = False
-do_make_new_images = True
-do_make_new_images = False
+list_of_pict   = []
+List_FNumbers  = []
+List_ExpoTimes = []
+List_ISOSpeeds = []
 
-root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
-root_dir = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle_001'
-synth_image_dir = 'synth_images'
-
-list_of_pict = []
-
-List_FNumber  = []
-List_ExpoTime = []
-List_ISOSpeed = []
-
-List_FNumber_float  = []
-List_ExpoTime_float = []
-List_ISOSpeed_float = []
+List_FNumbers_float  = []
+List_ExpoTimes_float = []
+List_ISOSpeeds_float = []
 
 
 # show command line usage
@@ -91,7 +77,7 @@ def get_opts_args():
     quiet = True
     global root_dir
     global do_calc_average
-    global do_make_batch_file
+    global do_make_rename_file
     global batch_file
     global batch_f_name
 
@@ -107,7 +93,7 @@ def get_opts_args():
         if o in ("-a", "--avrge"):
             do_calc_average = True
         if o in ("-b", "--batch"):
-            do_make_batch_file = True
+            do_make_rename_file = True
         if o in ("-d", "--dir"):
             root_dir = a
         if o in ("-s", "--syn"):
@@ -126,7 +112,7 @@ def get_opts_args():
         print 'Directory >' + root_dir + '< does not exist.'
         sys.exit(2)
 
-    if do_make_batch_file:
+    if do_make_rename_file:
         try:
             batch_f_name = 'rename_photos.bat'
             batch_f_name = os.path.join(root_dir, batch_f_name)
@@ -135,7 +121,7 @@ def get_opts_args():
             print "'%s' is unwritable\n" % batch_f_name
             sys.exit(2)
 
-    return root_dir, quiet, do_calc_average, do_make_batch_file
+    return root_dir, quiet, do_calc_average, do_make_rename_file
 
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass(object):
@@ -166,7 +152,6 @@ class PictClass(object):
             sys.exit(2)
 
     def __repr__(self):
-        # return '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % ( \
         return '%s; '*14 % ( \
         self.datum , \
         self.Make , \
@@ -407,7 +392,6 @@ def picts_csv_write(list_of_pict):
             writer.writerow(pict.__dict__)            # write values of dictionary: >pict.__dict__<. dictionary!!
     # pprint.pprint(fieldnames)
 
-
 def picts_csv_read():
     # (SilentGhost' answer is helpfull) but here we use _existing_ class -> simply adapt __init__
     # http://stackoverflow.com/questions/1639174/creating-class-instance-properties-from-a-dictionary-in-python
@@ -476,13 +460,13 @@ def split_and_combine_rgb_channels(pict_new, pict_1, pict_2, pict_3):
 def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     # used lists are global. values are strings or corresponding floats
 
-    global List_FNumber
-    global List_ExpoTime
-    global List_ISOSpeed
+    global List_FNumbers
+    global List_ExpoTimes
+    global List_ISOSpeeds
 
-    global List_FNumber_float
-    global List_ExpoTime_float
-    global List_ISOSpeed_float
+    global List_FNumbers_float
+    global List_ExpoTimes_float
+    global List_ISOSpeeds_float
 
     # calc average (FNumber, Expotime, ISOSpeed) from the 3 source images.
     average_FNumber   = (float(pict_1.FNumber) + float(pict_2.FNumber) + float(pict_3.FNumber)) / 3
@@ -492,21 +476,21 @@ def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     # Look for the nearest norm-value by calculating deltas from corresponding list of norm-values
     # Use index to extract nearest value as fraction (as string)
     # val, idx = min((val, idx) for (idx, val) in enumerate(my_list))
-    list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumber_float)
+    list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumbers_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_FNumber))
-    # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumber_float[idx], List_FNumber[idx]
-    pict_new.FNumber     = List_FNumber_float[idx]
-    pict_new.FNumber_str = List_FNumber[idx]
+    # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumbers_float[idx], List_FNumbers[idx]
+    pict_new.FNumber     = List_FNumbers_float[idx]
+    pict_new.FNumber_str = List_FNumbers[idx]
 
-    list_delta_ExpoTime = list(abs(float(x - average_ExpoTime)) for x in List_ExpoTime_float)
+    list_delta_ExpoTime = list(abs(float(x - average_ExpoTime)) for x in List_ExpoTimes_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_ExpoTime))
-    pict_new.ExpoTime     = List_ExpoTime_float[idx]
-    pict_new.ExpoTime_str = List_ExpoTime[idx]
+    pict_new.ExpoTime     = List_ExpoTimes_float[idx]
+    pict_new.ExpoTime_str = List_ExpoTimes[idx]
 
-    list_delta_ISOSpeed = list(abs(float(x - average_ISOSpeed)) for x in List_ISOSpeed_float)
+    list_delta_ISOSpeed = list(abs(float(x - average_ISOSpeed)) for x in List_ISOSpeeds_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_ISOSpeed))
-    pict_new.ISOSpeed     = List_ISOSpeed_float[idx]
-    pict_new.ISOSpeed_str = List_ISOSpeed[idx]
+    pict_new.ISOSpeed     = List_ISOSpeeds_float[idx]
+    pict_new.ISOSpeed_str = List_ISOSpeeds[idx]
 
 def make_new_images_logstr (cnt, new_pict, pict_s):
     log_str = str(cnt) + ' ; ' + new_pict.fn + ' ; '
@@ -524,21 +508,21 @@ def list_synthesized_images():
 def make_new_images():
     # following _global_ lists are used in >def calc_and_store_FN_ExposureTime_ISOSpeed<
     #   to calc FN_ExposureTime_ISOSpeed values
-    global List_FNumber
-    global List_ExpoTime
-    global List_ISOSpeed
-    List_FNumber = ["1.4", "1.8", "2", "2.2", "2.4", "2.8", "3.2", "3.5", "4", "4.5", "5", "5.6", "6.3", "6.5", "7.1",
+    global List_FNumbers
+    global List_ExpoTimes
+    global List_ISOSpeeds
+    List_FNumbers = ["1.4", "1.8", "2", "2.2", "2.4", "2.8", "3.2", "3.5", "4", "4.5", "5", "5.6", "6.3", "6.5", "7.1",
                     "8", "9.5", "10", "11", "13", "16", "19", "22"]
-    List_ExpoTime = ["1/1000", "1/500", "1/250", "1/125", "1/60", "1/30", "1/15", "1/8", "1/4", "1/2", "1"]
-    List_ISOSpeed = ["25", "50", "64", "100", "200", "400", "800", "1600", "3200", "6400", "12800", "25600", "51200",
+    List_ExpoTimes = ["1/1000", "1/500", "1/250", "1/125", "1/60", "1/30", "1/15", "1/8", "1/4", "1/2", "1"]
+    List_ISOSpeeds = ["25", "50", "64", "100", "200", "400", "800", "1600", "3200", "6400", "12800", "25600", "51200",
                      "102400", "204800"]
 
-    global List_FNumber_float
-    global List_ExpoTime_float
-    global List_ISOSpeed_float
-    List_FNumber_float = list(float(Fraction(x)) for x in List_FNumber)
-    List_ExpoTime_float = list(float(Fraction(x)) for x in List_ExpoTime)
-    List_ISOSpeed_float = list(float(Fraction(x)) for x in List_ISOSpeed)
+    global List_FNumbers_float
+    global List_ExpoTimes_float
+    global List_ISOSpeeds_float
+    List_FNumbers_float = list(float(Fraction(x)) for x in List_FNumbers)
+    List_ExpoTimes_float = list(float(Fraction(x)) for x in List_ExpoTimes)
+    List_ISOSpeeds_float = list(float(Fraction(x)) for x in List_ISOSpeeds)
 
     # synth images:
     # a) combine r,g,b channels from 3 different images of _same_ camera model (to conserve dimensions, geometry etc)
@@ -594,22 +578,33 @@ def make_new_images():
     list_synthesized_images()
 
 #======================================================================
-if __name__ == '__main__':
+do_calc_average     = True
+do_calc_average     = False
+do_make_rename_file = False
+do_make_new_images  = True
+do_make_new_images  = False
 
-    root_dir, quiet, do_calc_average, do_make_batch_file = get_opts_args()
+root_dir        = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
+root_dir        = 'D:\Data_Work\Other_Data\Morgen_Himmel\_Morgen_Himmel_alle_001'
+synth_image_dir = 'synth_images'
+synth_image_dir = ''
+
+
+if __name__ == '__main__':
+    root_dir, quiet, do_calc_average, do_make_rename_file = get_opts_args()
     initialize_list_of_picts()
 
     # >list_of_pict< is global
     cnt_jpg_files = make_list_of_picts_via_EXIF()
 
-    if do_make_batch_file:
+    if do_make_rename_file:
         make_rename_batch_file()
 
     cnt_existing_files = print_list_of_existing_picts()
     cnt_missing_files  = print_list_of_missing_picts()
     ## print '\n', '{:4d}'.format(cnt_missing_files), ' fehlen. '
 
-    if do_make_batch_file:
+    if do_make_rename_file:
         print "\n\n>" + batch_f_name + "< written. ", cnt_files, "files to rename\n"
         batch_file.close()
 
