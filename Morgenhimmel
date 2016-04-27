@@ -128,6 +128,7 @@ class PictClass(object):
     def __init__(self, param):
         if type (param) == str: # param == datum
             datum = param
+            self.cnt         = '0'
             self.datum       = datum
             self.date        = ''
             self.Make        = 'rh'
@@ -141,6 +142,7 @@ class PictClass(object):
             self.ExpoTime_str= ''
             self.ExpoTime    = ''
             self.ISOSpeed    = ''
+            self.ISOSpeed_str= ''
             self.av_gray     = '99'
             self.sources     = ''
         elif type (param) == dict:
@@ -152,7 +154,8 @@ class PictClass(object):
             sys.exit(2)
 
     def __repr__(self):
-        return '%s; '*14 % ( \
+        return '%s; '*16 % ( \
+        self.cnt ,
         self.datum , \
         self.Make , \
         self.Model , \
@@ -165,17 +168,19 @@ class PictClass(object):
         self.ExpoTime_str , \
         self.ExpoTime , \
         self.ISOSpeed , \
+        self.ISOSpeed_str , \
         self.av_gray , \
         self.sources )
 
 
-    fieldnames = [ "datum", "Make", "Model",
-                   "date", "fn", "fn_old", "path_fn",
-                   "FNumber_str" , "FNumber",
-                   "ExpoTime_str", "ExpoTime",
-                   "ISOSpeed",
-                   "av_gray",
-                   "sources"]
+    fieldnames = [ "cnt",
+        "datum", "Make", "Model",
+        "date", "fn", "fn_old", "path_fn",
+        "FNumber_str" , "FNumber",
+        "ExpoTime_str", "ExpoTime",
+        "ISOSpeed", "ISOSpeed_str",
+        "av_gray",
+        "sources"]
 
 
 def make_regex_YMDHm_word():
@@ -209,18 +214,18 @@ def make_regex_YMDHm_word():
 
 def print_list_of_existing_picts(list_of_pict=list_of_pict):
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
-    cnt_picts = 0
+    picts_cnt = 0
     for pict in list_of_pict:
         # pprint.pprint(pict)
         if pict.Model != 'ToDo':
-            cnt_picts += 1
+            picts_cnt += 1
             if not quiet:
-                print '{:4d}'.format(cnt_picts), pict
+                print '{:4d}'.format(picts_cnt), pict
         else:
             if not quiet:
                 print 'Model = rh: ', pict
             pass
-    return cnt_picts
+    return picts_cnt
 
 def print_all_existing_picts():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
@@ -228,29 +233,31 @@ def print_all_existing_picts():
         pprint.pprint(pict)
 
 def print_list_of_missing_picts():
-    cnt_picts = 0
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    picts_cnt = 0
     for pict in list_of_pict:
         if pict.Model == 'ToDo':
-            cnt_picts += 1
-            print str(cnt_picts) + ': ', pict
-    return cnt_picts
+            picts_cnt += 1
+            print str(picts_cnt) + ': ', pict
+    return picts_cnt
 
 def initialize_list_of_picts():
     # >list_of_pict< is global
-    global cnt_days
+    global days_cnt
     date1   = '2013_04_07'
     date2   = '2014_08_16'
     start   = datetime.datetime.strptime(date1, '%Y_%m_%d')
     end     = datetime.datetime.strptime(date2, '%Y_%m_%d')
     step    = datetime.timedelta(days=1)
-    cnt_days= 0
+    days_cnt= 0
     act_day = start
     while act_day <= end:
         act_day_str = act_day.date().strftime('%Y_%m_%d')  # Formatieren
         pict = PictClass(act_day_str)
+        pict.cnt = days_cnt
         list_of_pict.append(pict)
         act_day  += step
-        cnt_days +=  1
+        days_cnt +=  1
 
 def make_list_of_picts_via_EXIF():
     # >list_of_pict< is global
@@ -258,13 +265,13 @@ def make_list_of_picts_via_EXIF():
     reg_hhmm  = re.compile(r"^\d{4}_[A-Za-z]")
     reg_YMDHm = make_regex_YMDHm_word()#
     # reg_YYYY_MM_DD_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
-    cnt_jpg_files = 0
+    cnt_picts_ok = 0
     root, dirs, files = os.walk(root_dir).next()  # only first level
     for f_name in files:  # only files
         path_f_name = os.path.join(root, f_name)
-        ext = os.path.splitext(path_f_name)[-1].lower()
+        ext = os.path.splitext(path_f_name)[-1].lower()  # get fn-extension
         if ext == ".jpg":
-            cnt_jpg_files += 1
+            cnt_picts_ok += 1
             # print '\n', '{:4d}'.format(cnt_jpg_picts), ': ', f_name
 
             new_f_name = '*'
@@ -344,6 +351,7 @@ def make_list_of_picts_via_EXIF():
 
             # f_name = basename(path_f_name)
             # find pict in list_of_pict with pict.datum == Y_M_D_prefix
+            new_path_f_name = os.path.join(root, new_f_name)
             pict = next((x for x in list_of_pict if x.datum == Y_M_D_prefix), None)
             if pict.date:
                 print '!!! >>>> ', pict.date, ' exists ! <<<< '
@@ -353,20 +361,20 @@ def make_list_of_picts_via_EXIF():
                 pict.Model       = Model
                 pict.fn          = new_f_name
                 pict.fn_old      = f_name
-                # pict.path_fn = new_path_f_name
-                pict.path_fn     = ''
+                pict.path_fn     = new_path_f_name   # fn incl path
                 pict.FNumber_str = FNumber_str
                 pict.FNumber     = FNumber
                 pict.ExpoTime_str= ExposureTime
                 pict.ExpoTime    = ExposureTime_float # ExposureTime
                 pict.ISOSpeed    = ISOSpeed
+                pict.ISOSpeed_str= ISOSpeed
                 pict.av_gray     = 99
 
-    cnt_jpg_files = 0
+    cnt_picts_ok = 0
     for pict in list_of_pict:
         if pict.Model != 'ToDo':  # == missing image == to be synthesized
-            cnt_jpg_files += 1
-    return cnt_jpg_files
+            cnt_picts_ok += 1
+    return cnt_picts_ok
 
 def make_result_path_fn (dir, fn):
     return os.path.join(root_dir,dir, fn)
@@ -382,6 +390,7 @@ def picts_csv_write(list_of_pict):
     # http://stackoverflow.com/questions/61517/python-dictionary-from-an-objects-fields
     # http://stackoverflow.com/questions/3086973/how-do-i-convert-this-list-of-dictionaries-to-a-csv-file-python
     fn = make_result_path_fn('result', 'picts.csv')   # fn von csv file
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
     pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
     fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
     with open(fn, 'wb') as csv_file:
@@ -410,23 +419,12 @@ def make_rename_batch_file():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     cnt_picts = 0
     for pict in list_of_pict:
-        # new_path_f_name = os.path.join(root, pict.new_f_name)
         if (pict.Make != 'rh') and (pict.fn_old != pict.fn):
             cnt_picts += 1
             batch_str = 'mv %s %s ' % (pict.fn_old , pict.fn)
             batch_file.write(batch_str + '\n')
     return cnt_picts
 
-
-
-def calc_average_graylevel():
-    # print '>>>>>>>> calc_average_graylevel():'
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
-    for pict in list_of_pict:
-        # if pict.Model !=
-        image = Image.open(pict.fn).convert('L')
-        im_np_array = np.array(image)
-        pict.av_gray = np.average(im_np_array)
 
 def calc_model_type_picts():
     # calc's number of images per model
@@ -510,7 +508,7 @@ def list_synthesized_images():
         if pict.Model == 'synthesized': # find synthesized images
             print pict
 
-def make_new_images():
+def make_synthisize_images():
     # following _global_ lists are used in >def calc_and_store_FN_ExposureTime_ISOSpeed<
     #   to calc FN_ExposureTime_ISOSpeed values
     global List_FNumbers
@@ -573,7 +571,8 @@ def make_new_images():
             # calc virtual FNumber, ExposureTime and ISOSpeed of synthesized image
             calc_and_store_FN_ExposureTime_ISOSpeed (pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
             # mark it as synthesized image
-            pict_to_synth.Model = 'synthesized'
+            pict_to_synth.Model   = 'synthesized'
+            pict_to_synth.path_fn = (os.path.join(root_dir, synth_image_dir, pict.fn))
             # compose log_str and write it to file
             log_str = make_new_images_logstr(cnt, pict_to_synth, pict_s)
             log_f.write(log_str)
@@ -582,15 +581,30 @@ def make_new_images():
     # show what you've done
     list_synthesized_images()
 
+
+def calc_average_graylevel():
+    # print '>>>>>>>> calc_average_graylevel():'
+    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    cnt = 0
+    for pict in list_of_pict:
+        # if pict.Model !=
+        cnt += 1
+        print "\r  ", cnt, ': image # ', pict.path_fn, ' gray level = ',
+        image = Image.open(pict.path_fn).convert('L')
+        im_np_array  = np.array(image)
+        pict.av_gray = np.average(im_np_array)
+        print pict.av_gray
+
+
 #======================================================================
 root_dir        = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
 root_dir        = 'D:\Data_Work\Other_Data\Morgen_Himmel\_Morgen_Himmel_alle_001'
 synth_image_dir = 'synth_images'
 synth_image_dir = ''
 
-do_make_rename_file = False
-do_make_new_images  = True
-# do_make_new_images  = False
+do_make_rename_file       = False
+do_synthisize_new_images  = True
+# do_synthisize_new_images  = False
 
 do_calc_average     = True
 # do_calc_average     = False
@@ -612,7 +626,7 @@ if __name__ == '__main__':
         batch_file.close()
 
     print "\n\n"
-    print ">", cnt_days, "days in total"
+    print ">", days_cnt, "days in total"
     print ">", cnt_jpg_picts,      "jpg files in directory \n"
     print ">", cnt_existing_picts, "files in directory \n"
     print ">", cnt_missing_picts,  "missing files in directory \n"
@@ -621,14 +635,14 @@ if __name__ == '__main__':
     for model, cnt in list_model_cnt:
         print model + ':', cnt
 
-    if do_make_new_images:
+    picts_csv_write(list_of_pict)
+
+    if do_synthisize_new_images:
         print "\n"
-        make_new_images()
+        make_synthisize_images()
         print "\n"
 
-    save
-    image
-    params
+    picts_csv_write(list_of_pict)
 
     if do_calc_average:
         calc_average_graylevel()
