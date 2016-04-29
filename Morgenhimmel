@@ -141,7 +141,7 @@ class PictClass(object):
             self.fn          = datum + '_' + '0900_IMG_rh.JPG'
             self.fn_old      = '0900_IMG_rh.JPG'         # default
             self.path_fn     = ''
-            self.sources = ''
+            self.sources     = ''
             self.FNumber_str = ''
             self.FNumber     = ''
             self.ExpoTime_str= ''
@@ -149,7 +149,7 @@ class PictClass(object):
             self.ISOSpeed    = ''
             self.ISOSpeed_str= ''
             self.av_gray     = '99'
-        elif type (param) == dict:
+        elif type (param) == dict:  # when reading from csv-file initialize >pict< with dict.
             dct = param
             for k, v in dct.items():
                 setattr(self, k, v)
@@ -175,7 +175,6 @@ class PictClass(object):
         self.ISOSpeed , \
         self.ISOSpeed_str , \
         self.av_gray )
-
 
     fieldnames = [ "cnt",
         "datum", "Make", "Model",
@@ -266,26 +265,26 @@ def print_todo_picts_in_list():
     for pict in list_of_pict:
         if pict.Model == 'ToDo':
             cnt_picts += 1
-            print str(cnt_picts) + ': ', pict
+            print '{:4d}'.format(cnt_picts) + ': ', pict
     return cnt_picts
 
 def initialize_list_of_picts():
     # >list_of_pict< is global
-    global days_cnt
+    global cnt_days
     date1   = '2013_04_07'
     date2   = '2014_08_16'
     start   = datetime.datetime.strptime(date1, '%Y_%m_%d')
     end     = datetime.datetime.strptime(date2, '%Y_%m_%d')
     step    = datetime.timedelta(days=1)
-    days_cnt= 0
+    cnt_days= 0
     act_day = start
     while act_day <= end:
         act_day_str = act_day.date().strftime('%Y_%m_%d')  # Formatieren
         pict = PictClass(act_day_str)
-        pict.cnt = days_cnt
+        pict.cnt = cnt_days
         list_of_pict.append(pict)
         act_day  += step
-        days_cnt +=  1
+        cnt_days +=  1
 
 def make_list_of_picts_via_EXIF():
     # >list_of_pict< is global
@@ -379,9 +378,10 @@ def make_list_of_picts_via_EXIF():
             new_path_f_name = os.path.join(root, new_f_name)
             pict = next((x for x in list_of_pict if x.datum == Y_M_D_prefix), None)
             if not pict:
+                # print '! Y_M_D_prefix = >', Y_M_D_prefix,  '< No pict found!'
                 pass
             elif pict.date :
-                print '!!! >>>> ', pict.date, ' exists .'
+                print '!> ', pict.date, '< exists .'
             else:
                 pict.date        = Y_M_D_prefix
                 pict.Make        = Make
@@ -440,7 +440,7 @@ def picts_csv_read():
         # print f_name,
         if re.match(reg_YMDHm_pict, f_name):
             result_files.append(f_name)
-            print 'found result file: ', f_name
+            # print 'found result file: ', f_name
         else:
             pass
             # print
@@ -470,7 +470,7 @@ def make_rename_batch_file():
     return cnt_picts
 
 
-def adjust_EXIF_Model_Tag(pict):
+def adjust_EXIF_tags(pict):
     # https://github.com/hMatoba/Piexif
     # http://piexif-demo.appspot.com/demo
     # https://www.smallsurething.com/how-to-remove-exif-data-from-jpeg-images-in-python/
@@ -496,10 +496,52 @@ def adjust_EXIF_Model_Tag(pict):
     exif_dict['0th'][272] = 'synthesized'    # == Model ??
     # pprint.pprint(exif_dict)
     exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
+    # adjust dates:
+    date_str = "2013:04:07 09:00:00"
+    exif_dict['0th'][306]    = date_str
+    exif_dict['Exif'][36867] = date_str
+    exif_dict['Exif'][36868] = date_str
     # save file with changed EXIF tag:
     piexif.insert(exif_bytes, pict.path_fn)
     if not quiet:
         print 'adjust EXIF Tag "Model" in: ' + pict.path_fn + '< to >synthesized< ok'
+
+def test_EXIF_Tag(pict):
+    l_path = "D:\Data_Work\Other_Data\Morgen_Himmel\_Morgen_Himmel_alle_001"
+    l_fn   = "2013_04_07_1222_IMG_2553_01.JPG"
+    pict.path_fn = os.path.join(l_path, l_fn)
+    print 'test_EXIF_Tag: ', pict.path_fn
+    exif_dict = piexif.load(pict.path_fn)  # EXIF data as dictionary ...     (can not be written in file)
+    exif_bytes = piexif.dump(exif_dict)    # transformed in byte - data. ... (can     be written in file)
+    pprint.pprint (exif_dict)
+    # for ifd_name in exif_dict:
+    #     # print ("\n{0} IFD:".format(ifd_name))
+    #     if hasattr(exif_dict[ifd_name], "__iter__"):
+    #         for key in exif_dict[ifd_name]:
+    #             try:
+    #                 # print (key, exif_dict[ifd_name][key][:10])
+    #             except:
+    #                 # print ('?')
+
+    for ifd_name in exif_dict:
+        if hasattr(exif_dict[ifd_name], "__iter__"):
+            for key in exif_dict[ifd_name]:
+                exif_dict[ifd_name] = {}
+
+    # exif_dict['0th'][271] = 'synthesized'  # == Make
+    exif_dict['0th'][272]  = 'synthesized'   # == Model
+    dt = pict.datum
+    date_str = dt[0:4] + ':' + dt[5:7]+ ':' + dt[8:10] + ' 09:00:00'
+    exif_dict['0th'][306]    = date_str
+    exif_dict['Exif'][36867] = date_str
+    exif_dict['Exif'][36868] = date_str
+    print date_str
+
+    # pprint.pprint(exif_dict)
+    exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
+    # save file with changed EXIF tag:
+    # piexif.insert(exif_bytes, pict.path_fn)
+    print 'test_EXIF_tag "Model" in: ' + pict.path_fn + '< to >synthesized< ok'
 
 
 
@@ -508,11 +550,11 @@ def temporary_corr_EXIF_of_synthesized_picts(list_of_pict=list_of_pict):
     # http: // tilloy.net / dev / pyexiv2 / tutorial.html
     for pict in list_of_pict:
         if pict.Model == 'synthesized': # find synthesized images
-            # adjust_EXIF_Model_Tag(pict)
+            # adjust_EXIF_tags(pict)
             pass
             # print 'synthesized: ', pict
 
-    # adjust_EXIF_Model_Tag(pict = None)
+    # adjust_EXIF_tags(pict = None)
     # pict = list_of_pict[0]
     # write_EXIF_explore()
     pass
@@ -533,6 +575,11 @@ def calc_model_type_picts():
         list_model_cnt.append(temp)
 
     list_model_cnt.sort(key=lambda x: x[0])
+
+    print
+    for model, cnt in list_model_cnt:
+        print model + ':', cnt
+
     return list_model_cnt
 
 def synthesize_image_and_save_it(pict_new, pict_1, pict_2, pict_3):
@@ -660,7 +707,7 @@ def synthesize_missing_picts():
             # adjust >path_fn< in >pict< object
             pict_to_synth.path_fn = (os.path.join(root_dir, synth_image_dir, pict.fn))
             # adjust EXIF Make tag in jpeg-file (!) to :'synthesized'
-            adjust_EXIF_Model_Tag(pict_to_synth)
+            adjust_EXIF_tags(pict_to_synth)
             # store names of source images in >pict< object:
             pict_to_synth.sources = pict_s[0].fn + ', ' + pict_s[1].fn + ', ' + pict_s[2].fn
             # calc virtual FNumber, ExposureTime and ISOSpeed of synthesized image
@@ -697,10 +744,10 @@ synth_image_dir = ''
 
 do_make_rename_file       = False
 do_synthesize_new_images  = True
-# do_synthesize_new_images  = False
+do_synthesize_new_images  = False
 
 do_calc_average     = True
-# do_calc_average     = False
+do_calc_average     = False
 
 
 if __name__ == '__main__':
@@ -720,15 +767,14 @@ if __name__ == '__main__':
     ## print '\n', '{:4d}'.format(cnt_missing_picts), ' fehlen. '
 
     print "\n\n"
-    print ">", days_cnt,           "days in total"
-    print ">", cnt_jpg_files,      "jpg   files in directory "
-    print ">", cnt_valid_files,    "valid files in directory "
-    print ">", cnt_valid_picts,    "valid   picts in list "
-    print ">", cnt_missing_picts,  "missing picts in list "
+    '{:4d}'.format(cnt_valid_picts)
+    print ">", '{:4d}'.format(cnt_days), "days    in total"
+    print ">", '{:4d}'.format(cnt_jpg_files),      "jpg     files in directory "
+    print ">", '{:4d}'.format(cnt_valid_files),    "valid   files in directory "
+    print ">", '{:4d}'.format(cnt_valid_picts),    "valid   picts in list "
+    print ">", '{:4d}'.format(cnt_missing_picts),  "missing picts in list "
 
-    list_model_cnt = calc_model_type_picts()   # count number of picts for every camera model
-    for model, cnt in list_model_cnt:
-        print model + ':', cnt
+    calc_model_type_picts()   # show number of picts for every camera model
 
     # picts_csv_write(list_of_pict)
 
@@ -736,6 +782,8 @@ if __name__ == '__main__':
         print "\n"
         synthesize_missing_picts()
         print "\n"
+
+    # test_EXIF_Tag(list_of_pict[0])
 
     picts_csv_write(list_of_pict)
 
