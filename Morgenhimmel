@@ -30,21 +30,24 @@
 
 import csv
 import datetime
-import pyexiv2
+import exifread       # EXIF write python 2.7xx
 import getopt
 import json
 import os
 import pprint
+import pyexiv2        # EXIF write python 2.7xx
+import piexif         # EXIF write python 2.7xx
 import random
 import re
 import sys
 from operator import itemgetter, attrgetter, methodcaller
 from fractions import Fraction
 
-import exifread
 # https://books.google.de/books?id=YRHSCgAAQBAJ&pg=PA96&lpg=PA96&dq=pil+average+grayscale&source=bl&ots=tsJ8nbYvua&sig=OHKPOAlTMV08S-p5jS-t_RacTS0&hl=de&sa=X&ved=0ahUKEwjrxo2I2JHMAhWEJhoKHY_rB0cQ6AEIRzAE#v=onepage&q=pil%20average%20grayscale&f=false
 import numpy as np
 from PIL import Image
+
+quiet          = True
 
 list_of_pict   = []
 List_FNumbers  = []
@@ -75,12 +78,13 @@ def usage(exit_status):
         sys.exit(exit_status)
 
 def get_opts_args():
-    quiet = True
     global root_dir
+    global quiet
     global do_calc_average
     global do_make_rename_file
     global batch_file
     global batch_f_name
+    quiet = True
 
     try:
         #  >:< option requires argument
@@ -434,16 +438,17 @@ def picts_csv_read():
     root, dirs, files = os.walk(results_dir).next()  # only first level
     result_files = []
     for f_name in files:  # only files, not subdirs
-        print f_name,
+        # print f_name,
         if re.match(reg_YMDHm_pict, f_name):
             result_files.append(f_name)
-            print f_name
+            print 'found result file: ', f_name
         else:
-            print
+            pass
+            # print
 
     fn = max(result_files)
     result_fn = os.path.join(root_dir, 'results', fn)
-    print 'Reading data from: ', result_fn,
+    print '\n', 'Reading data from: \n>', result_fn
     new_list_of_pict = []
     with open(result_fn, 'r') as csv_file:
         reader = csv.DictReader(csv_file)
@@ -452,7 +457,7 @@ def picts_csv_read():
                 print pict_dict          # is a dict
             pict = PictClass(pict_dict)
             new_list_of_pict.append(pict)
-    print ' successfull '
+    print 'successfull.'
     return new_list_of_pict
 
 def make_rename_batch_file():
@@ -466,12 +471,88 @@ def make_rename_batch_file():
     return cnt_picts
 
 
-def write_EXIF_Make(pict_path_fn):
-    metadata = pyexiv2.ImageMetadata(pict_path_fn)
-    metadata.read()
-    # metadata[key] = value
-    metadata['Make'] = 'rh'
-    metadata.write()
+def write_EXIF_Make(pict):
+    # https://github.com/hMatoba/Piexif
+    # http://piexif-demo.appspot.com/demo
+    # https://www.smallsurething.com/how-to-remove-exif-data-from-jpeg-images-in-python/
+    print 'synthesized: ', pict
+    exif_dict = piexif.load(pict.path_fn)  # EXIF data as dictionary ...     (can not be written in file)
+    exif_bytes = piexif.dump(exif_dict)    # transformed in byte - data. ... (can     be written in file)
+    # piexif.insert(exif_bytes, "foo.jpg")
+    for ifd_name in exif_dict:
+        print("\n{0} IFD:".format(ifd_name))
+        if hasattr(exif_dict[ifd_name], "__iter__"):
+            for key in exif_dict[ifd_name]:
+                try:
+                    print(key, exif_dict[ifd_name][key][:10])
+                except:
+                    print('?')
+
+    # print exif_dict['0th'][271]
+    for ifd_name in exif_dict:
+        if hasattr(exif_dict[ifd_name], "__iter__"):
+            for key in exif_dict[ifd_name]:
+                exif_dict[ifd_name] = {}
+
+    exif_dict['0th'][271] = 'synthisized'
+    print exif_dict['0th'][271]
+    pprint.pprint(exif_dict)
+    print '------------------'
+
+
+def write_EXIF_explore():
+    # https://github.com/hMatoba/Piexif
+    # http://piexif-demo.appspot.com/demo
+    # https://www.smallsurething.com/how-to-remove-exif-data-from-jpeg-images-in-python/
+    pict_path_fn = "D:\\Data_Work\\Other_Data\\Morgen_Himmel\\_Morgen_Himmel_alle_001\\2013_04_07_1222_IMG_2553_01.JPG"
+    print '\nEXIF of: ', pict_path_fn
+    exif_dict  = piexif.load(pict_path_fn)    # EXIF data as dictionary ...     (can not be written in file)
+
+    exif_bytes = piexif.dump(exif_dict)       # transformed in byte - data. ... (can     be written in file)
+    # piexif.insert(exif_bytes, "foo.jpg")
+    for ifd_name in exif_dict:
+        print("\n{0} IFD:".format(ifd_name))
+        # print("{0} IFD:".format(ifd_name))
+        # (hasattr(a, "__iter__"))
+        if hasattr(exif_dict[ifd_name], "__iter__"):
+            for key in exif_dict[ifd_name]:
+                try:
+                    print(key, exif_dict[ifd_name][key][:10])
+                except:
+                    print('?')
+    print '------------------'
+    pprint.pprint (exif_dict)
+    print '------------------'
+
+    print exif_dict['0th'][271]
+    for ifd_name in exif_dict:
+        if hasattr(exif_dict[ifd_name], "__iter__"):
+            for key in exif_dict[ifd_name]:
+                exif_dict[ifd_name] = {}
+
+    exif_dict['0th'][271] = 'synthisized'
+    print exif_dict['0th'][271]
+    pprint.pprint (exif_dict)
+    print '------------------'
+    exif_bytes = piexif.dump(exif_dict)  # transformed in byte - data. ... (can     be written in file)
+    piexif.insert(exif_bytes, pict_path_fn)
+
+
+def tmporary_corr_EXIF_of_synthisized_picts(list_of_pict=list_of_pict):
+    # http://tilloy.net/dev/pyexiv2/
+    # http: // tilloy.net / dev / pyexiv2 / tutorial.html
+    for pict in list_of_pict:
+        if pict.Model == 'synthesized': # find synthesized images
+            # write_EXIF_Make(pict)
+            pass
+            # print 'synthesized: ', pict
+
+    pict = list_of_pict[0]
+    write_EXIF_explore()
+    pass
+
+
+
 
 def calc_model_type_picts():
     # calc's number of images per model
@@ -555,7 +636,7 @@ def list_synthesized_images():
         if pict.Model == 'synthesized': # find synthesized images
             print pict
 
-def make_synthisize_images():
+def synthisize_images():
     # following _global_ lists are used in >def calc_and_store_FN_ExposureTime_ISOSpeed<
     #   to calc FN_ExposureTime_ISOSpeed values
     global List_FNumbers
@@ -628,7 +709,6 @@ def make_synthisize_images():
     # show what you've done
     list_synthesized_images()
 
-
 def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
@@ -687,7 +767,7 @@ if __name__ == '__main__':
 
     if do_synthisize_new_images:
         print "\n"
-        make_synthisize_images()
+        synthisize_images()
         print "\n"
 
     # picts_csv_write(list_of_pict)
@@ -698,8 +778,11 @@ if __name__ == '__main__':
     # print_all_picts_in_list()
     # picts_show_class_members(list_of_pict)
 
-    new_list_of_pict = picts_csv_read()
-    picts_csv_write(new_list_of_pict)
-    cnt_valid_picts  = print_valid_picts_in_list(new_list_of_pict)
+    list_of_pict = picts_csv_read()
+
+    tmporary_corr_EXIF_of_synthisized_picts(list_of_pict)
+
+    # picts_csv_write(new_list_of_pict)
+    cnt_valid_picts  = print_valid_picts_in_list(list_of_pict)
 
     print "\n> end"
