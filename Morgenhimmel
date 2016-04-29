@@ -30,6 +30,7 @@
 
 import csv
 import datetime
+import pyexiv2
 import getopt
 import json
 import os
@@ -137,6 +138,7 @@ class PictClass(object):
             self.fn          = datum + '_' + '0900_IMG_rh.JPG'
             self.fn_old      = '0900_IMG_rh.JPG'         # default
             self.path_fn     = ''
+            self.sources = ''
             self.FNumber_str = ''
             self.FNumber     = ''
             self.ExpoTime_str= ''
@@ -144,7 +146,6 @@ class PictClass(object):
             self.ISOSpeed    = ''
             self.ISOSpeed_str= ''
             self.av_gray     = '99'
-            self.sources     = ''
         elif type (param) == dict:
             dct = param
             for k, v in dct.items():
@@ -163,24 +164,24 @@ class PictClass(object):
         self.fn , \
         self.fn_old , \
         self.path_fn , \
+        self.sources ,
         self.FNumber_str , \
         self.FNumber , \
         self.ExpoTime_str , \
         self.ExpoTime , \
         self.ISOSpeed , \
         self.ISOSpeed_str , \
-        self.av_gray , \
-        self.sources )
+        self.av_gray )
 
 
     fieldnames = [ "cnt",
         "datum", "Make", "Model",
         "date", "fn", "fn_old", "path_fn",
+        "sources",
         "FNumber_str" , "FNumber",
         "ExpoTime_str", "ExpoTime",
         "ISOSpeed", "ISOSpeed_str",
-        "av_gray",
-        "sources"]
+        "av_gray"]
 
 
 def make_regex_YMDHm_word():
@@ -207,39 +208,63 @@ def make_regex_YMDHm_word():
     rgx = re.compile(
         re1 + re2 + re3 + re4 + re5 + re6 + re7 + re8 + re9 + re10 + re11 + re12 + re13 + re14 + re15 + re16 + re17,
         re.IGNORECASE | re.DOTALL)
-    # txt='2013_09_17_1937_IMG_9930.JPG'
-    # m = rgx.search(txt)
-    # if m: print 'ok'
     return rgx
 
-def print_list_of_existing_picts(list_of_pict=list_of_pict):
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
-    picts_cnt = 0
+
+def make_regex_YMDHm_pict():
+    # URL that generated this code:
+    # http://txt2re.com/index-python.php3?s=2016_04_29_01_52_picts
+    # txt = '2016_04_29_01_52_picts.csv'
+
+    re1 = '((?:(?:[1]{1}\\d{1}\\d{1}\\d{1})|(?:[2]{1}\\d{3})))(?![\\d])'  # Year 1
+    re2 = '(_)'  # Any Single Character 1
+    re3 = '((?:(?:[0-2]?\\d{1})|(?:[3][01]{1})))(?![\\d])'  # Day 1
+    re4 = '(_)'  # Any Single Character 2
+    re5 = '((?:(?:[0-2]?\\d{1})|(?:[3][01]{1})))(?![\\d])'  # Day 2
+    re6 = '(_)'  # Any Single Character 3
+    re7 = '((?:(?:[0-2]?\\d{1})|(?:[3][01]{1})))(?![\\d])'  # Day 3
+    re8 = '(_)'  # Any Single Character 4
+    re9 = '(\\d)'  # Any Single Digit 1
+    re10 = '(\\d)'  # Any Single Digit 2
+    re11 = '(_)'  # Any Single Character 5
+    re12 = '(picts)'  # Word 1
+    re13 = '(\\.)'  # Any Single Character 6
+    re14 = '(csv)'  # Word 2
+
+    rgx = re.compile(re1 + re2 + re3 + re4 + re5 + re6 + re7 + re8 + re9 + re10 + re11 + re12 + re13 + re14,
+                    re.IGNORECASE | re.DOTALL)
+    # m = rg.search(txt)    # m = rg.search(txt)
+    return rgx
+
+def print_valid_picts_in_list(list_of_pict=list_of_pict):
+    list_of_pict.sort(key = attrgetter('datum'))
+    cnt_valid_picts = 0
     for pict in list_of_pict:
         # pprint.pprint(pict)
         if pict.Model != 'ToDo':
-            picts_cnt += 1
-            if not quiet:
-                print '{:4d}'.format(picts_cnt), pict
+            cnt_valid_picts += 1
+            out_str = '{:4d}'.format(cnt_valid_picts), pict
         else:
-            if not quiet:
-                print 'Model = rh: ', pict
-            pass
-    return picts_cnt
+            out_str = 'Model = rh: ', pict
 
-def print_all_existing_picts():
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    if not quiet:
+        print out_str
+    return cnt_valid_picts
+
+def print_all_picts_in_list():
+    list_of_pict.sort(key = attrgetter('datum'))
     for pict in list_of_pict:
         pprint.pprint(pict)
 
-def print_list_of_missing_picts():
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
-    picts_cnt = 0
+def print_todo_picts_in_list():
+    list_of_pict.sort(key = attrgetter('datum'))
+    print 'Images to synthesize:'
+    cnt_picts = 0
     for pict in list_of_pict:
         if pict.Model == 'ToDo':
-            picts_cnt += 1
-            print str(picts_cnt) + ': ', pict
-    return picts_cnt
+            cnt_picts += 1
+            print str(cnt_picts) + ': ', pict
+    return cnt_picts
 
 def initialize_list_of_picts():
     # >list_of_pict< is global
@@ -265,20 +290,18 @@ def make_list_of_picts_via_EXIF():
     reg_hhmm  = re.compile(r"^\d{4}_[A-Za-z]")
     reg_YMDHm = make_regex_YMDHm_word()#
     # reg_YYYY_MM_DD_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
-    cnt_picts_ok = 0
+    cnt_jpg_picts = 0
     root, dirs, files = os.walk(root_dir).next()  # only first level
-    for f_name in files:  # only files
+    for f_name in files:  # only files, not subdirs
         path_f_name = os.path.join(root, f_name)
         ext = os.path.splitext(path_f_name)[-1].lower()  # get fn-extension
-        if ext == ".jpg":
-            cnt_picts_ok += 1
-            # print '\n', '{:4d}'.format(cnt_jpg_picts), ': ', f_name
-
+        if ext == ".jpg": # jpg's
+            cnt_jpg_picts += 1
             new_f_name = '*'
             new_path_f_name = '*'
-
             Make = 'Manufacturer_?'
             Model = 'Model_?'
+            Y_M_D_prefix  = ''
             date_time_str = '0'
             FNumber = '0'
             ExposureTime = '0'
@@ -289,7 +312,7 @@ def make_list_of_picts_via_EXIF():
             except:
                 print "'%s' is unreadable\n" % path_f_name
                 continue
-            # get EXif tags:
+            # now get EXif tags:
             data = exifread.process_file(im_file, details=False)
             im_file.close()
 
@@ -349,12 +372,13 @@ def make_list_of_picts_via_EXIF():
                     else:
                         new_f_name = YMDHm_prefix + '_' + f_name
 
-            # f_name = basename(path_f_name)
             # find pict in list_of_pict with pict.datum == Y_M_D_prefix
             new_path_f_name = os.path.join(root, new_f_name)
             pict = next((x for x in list_of_pict if x.datum == Y_M_D_prefix), None)
-            if pict.date:
-                print '!!! >>>> ', pict.date, ' exists ! <<<< '
+            if not pict:
+                pass
+            elif pict.date :
+                print '!!! >>>> ', pict.date, ' exists .'
             else:
                 pict.date        = Y_M_D_prefix
                 pict.Make        = Make
@@ -370,27 +394,27 @@ def make_list_of_picts_via_EXIF():
                 pict.ISOSpeed_str= ISOSpeed
                 pict.av_gray     = 99
 
-    cnt_picts_ok = 0
+    cnt_valid_picts = 0
     for pict in list_of_pict:
         if pict.Model != 'ToDo':  # == missing image == to be synthesized
-            cnt_picts_ok += 1
-    return cnt_picts_ok
+            cnt_valid_picts += 1
+    return cnt_jpg_picts, cnt_valid_picts
 
 def make_result_path_fn (dir, fn):
     return os.path.join(root_dir,dir, fn)
 
-def picts_show_class_members(list_of_pict):
-    for pict in list_of_pict:
-        print '\n -------------- \n'
-        for k, v in vars(pict).items():
-            print 'k= ', k, 'v= ', v
+def act_date_time_str():
+    now = datetime.datetime.now()
+    # dt_str = now.year + now.month + now.day + now.hour + now.minute
+    return now.strftime("%Y_%m_%d_%H_%M_")
+    # return dt_str
 
 def picts_csv_write(list_of_pict):
     # >PictClass< erbt von >object< => >pict.__dict__< ist ein dictionary und kann mit >csv.DictWriter< serialisiert werden.
     # http://stackoverflow.com/questions/61517/python-dictionary-from-an-objects-fields
     # http://stackoverflow.com/questions/3086973/how-do-i-convert-this-list-of-dictionaries-to-a-csv-file-python
-    fn = make_result_path_fn('result', 'picts.csv')   # fn von csv file
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    fn = make_result_path_fn('results', act_date_time_str() + 'picts.csv')   # fn von csv file
+    list_of_pict.sort(key = attrgetter('datum'))
     pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
     fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
     with open(fn, 'wb') as csv_file:
@@ -402,9 +426,23 @@ def picts_csv_write(list_of_pict):
     # pprint.pprint(fieldnames)
 
 def picts_csv_read():
-    # (SilentGhost' answer is helpfull) but here we use _existing_ class -> simply adapt __init__
+    # (SilentGhost' answer is helpfull) but here we use _existing_ class -> simply adapt >PictClass.__init__<
     # http://stackoverflow.com/questions/1639174/creating-class-instance-properties-from-a-dictionary-in-python
-    fn = make_result_path_fn('result', 'picts.csv')
+    reg_YMDHm_pict = make_regex_YMDHm_pict()#
+    # os.path.join(root_dir, dir, fn)
+    results_dir = os.path.join(root_dir, 'results', '')
+    root, dirs, files = os.walk(results_dir).next()  # only first level
+    result_files = []
+    for f_name in files:  # only files, not subdirs
+        print f_name,
+        if re.match(reg_YMDHm_pict, f_name):
+            result_files.append(f_name)
+            print f_name
+        else:
+            print
+
+    fn = max(result_files)
+    print '>>>>>>>>>>>>>>>>', fn
     new_list_of_pict = []
     with open(fn, 'r') as csv_file:
         reader = csv.DictReader(csv_file)
@@ -416,15 +454,22 @@ def picts_csv_read():
     return new_list_of_pict
 
 def make_rename_batch_file():
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+    list_of_pict.sort(key = attrgetter('datum'))
     cnt_picts = 0
     for pict in list_of_pict:
-        if (pict.Make != 'rh') and (pict.fn_old != pict.fn):
+        if (pict.Model != 'ToDo') and (pict.fn_old != pict.fn):
             cnt_picts += 1
             batch_str = 'mv %s %s ' % (pict.fn_old , pict.fn)
             batch_file.write(batch_str + '\n')
     return cnt_picts
 
+
+def write_EXIF_Make(pict_path_fn):
+    metadata = pyexiv2.ImageMetadata(pict_path_fn)
+    metadata.read()
+    # metadata[key] = value
+    metadata['Make'] = 'rh'
+    metadata.write()
 
 def calc_model_type_picts():
     # calc's number of images per model
@@ -604,20 +649,20 @@ synth_image_dir = ''
 
 do_make_rename_file       = False
 do_synthisize_new_images  = True
-# do_synthisize_new_images  = False
+do_synthisize_new_images  = False
 
 do_calc_average     = True
-# do_calc_average     = False
+do_calc_average     = False
 
 
 if __name__ == '__main__':
     root_dir, quiet, do_calc_average, do_make_rename_file = get_opts_args()
+    # >list_of_pict< is global
     initialize_list_of_picts()
 
-    # >list_of_pict< is global
-    cnt_jpg_picts      = make_list_of_picts_via_EXIF()
-    cnt_existing_picts = print_list_of_existing_picts()
-    cnt_missing_picts  = print_list_of_missing_picts()
+    cnt_jpg_files, cnt_valid_files = make_list_of_picts_via_EXIF()  # *.jpg files in directory
+    cnt_valid_picts                = print_valid_picts_in_list()    # picts in list
+    cnt_missing_picts              = print_todo_picts_in_list()
     ## print '\n', '{:4d}'.format(cnt_missing_picts), ' fehlen. '
 
     if do_make_rename_file:
@@ -626,32 +671,33 @@ if __name__ == '__main__':
         batch_file.close()
 
     print "\n\n"
-    print ">", days_cnt, "days in total"
-    print ">", cnt_jpg_picts,      "jpg files in directory \n"
-    print ">", cnt_existing_picts, "files in directory \n"
-    print ">", cnt_missing_picts,  "missing files in directory \n"
+    print ">", days_cnt,           "days in total"
+    print ">", cnt_jpg_files,      "jpg   files in directory "
+    print ">", cnt_valid_files,    "valid files in directory "
+    print ">", cnt_valid_picts,    "valid   picts in list "
+    print ">", cnt_missing_picts,  "missing picts in list "
 
     list_model_cnt = calc_model_type_picts()
     for model, cnt in list_model_cnt:
         print model + ':', cnt
 
-    picts_csv_write(list_of_pict)
+    # picts_csv_write(list_of_pict)
 
     if do_synthisize_new_images:
         print "\n"
         make_synthisize_images()
         print "\n"
 
-    picts_csv_write(list_of_pict)
+    # picts_csv_write(list_of_pict)
 
     if do_calc_average:
         calc_average_graylevel()
 
-    # print_all_existing_picts()
+    # print_all_picts_in_list()
     # picts_show_class_members(list_of_pict)
 
-    picts_csv_write(list_of_pict)
     new_list_of_pict = picts_csv_read()
-    cnt_existing_picts = print_list_of_existing_picts(new_list_of_pict)
+    picts_csv_write(new_list_of_pict)
+    cnt_valid_picts  = print_valid_picts_in_list(new_list_of_pict)
 
     print "\n> end"
