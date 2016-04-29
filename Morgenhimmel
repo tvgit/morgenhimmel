@@ -35,7 +35,6 @@ import getopt
 import json
 import os
 import pprint
-import pyexiv2        # EXIF write python 2.7xx
 import piexif         # EXIF write python 2.7xx
 import random
 import re
@@ -471,88 +470,49 @@ def make_rename_batch_file():
     return cnt_picts
 
 
-def write_EXIF_Make(pict):
+def adjust_EXIF_Model_Tag(pict):
     # https://github.com/hMatoba/Piexif
     # http://piexif-demo.appspot.com/demo
     # https://www.smallsurething.com/how-to-remove-exif-data-from-jpeg-images-in-python/
-    print 'synthesized: ', pict
+    print 'synthesized: ', pict.path_fn
     exif_dict = piexif.load(pict.path_fn)  # EXIF data as dictionary ...     (can not be written in file)
     exif_bytes = piexif.dump(exif_dict)    # transformed in byte - data. ... (can     be written in file)
-    # piexif.insert(exif_bytes, "foo.jpg")
-    for ifd_name in exif_dict:
-        print("\n{0} IFD:".format(ifd_name))
-        if hasattr(exif_dict[ifd_name], "__iter__"):
-            for key in exif_dict[ifd_name]:
-                try:
-                    print(key, exif_dict[ifd_name][key][:10])
-                except:
-                    print('?')
+    # pprint.pprint (exif_dict)
+    # for ifd_name in exif_dict:
+    #     # print ("\n{0} IFD:".format(ifd_name))
+    #     if hasattr(exif_dict[ifd_name], "__iter__"):
+    #         for key in exif_dict[ifd_name]:
+    #             try:
+    #                 # print (key, exif_dict[ifd_name][key][:10])
+    #             except:
+    #                 # print ('?')
 
-    # print exif_dict['0th'][271]
-    for ifd_name in exif_dict:
-        if hasattr(exif_dict[ifd_name], "__iter__"):
-            for key in exif_dict[ifd_name]:
-                exif_dict[ifd_name] = {}
-
-    exif_dict['0th'][271] = 'synthisized'
-    print exif_dict['0th'][271]
-    pprint.pprint(exif_dict)
-    print '------------------'
-
-
-def write_EXIF_explore():
-    # https://github.com/hMatoba/Piexif
-    # http://piexif-demo.appspot.com/demo
-    # https://www.smallsurething.com/how-to-remove-exif-data-from-jpeg-images-in-python/
-    pict_path_fn = "D:\\Data_Work\\Other_Data\\Morgen_Himmel\\_Morgen_Himmel_alle_001\\2013_04_07_1222_IMG_2553_01.JPG"
-    print '\nEXIF of: ', pict_path_fn
-    exif_dict  = piexif.load(pict_path_fn)    # EXIF data as dictionary ...     (can not be written in file)
-
-    exif_bytes = piexif.dump(exif_dict)       # transformed in byte - data. ... (can     be written in file)
-    # piexif.insert(exif_bytes, "foo.jpg")
-    for ifd_name in exif_dict:
-        print("\n{0} IFD:".format(ifd_name))
-        # print("{0} IFD:".format(ifd_name))
-        # (hasattr(a, "__iter__"))
-        if hasattr(exif_dict[ifd_name], "__iter__"):
-            for key in exif_dict[ifd_name]:
-                try:
-                    print(key, exif_dict[ifd_name][key][:10])
-                except:
-                    print('?')
-    print '------------------'
-    pprint.pprint (exif_dict)
-    print '------------------'
-
-    print exif_dict['0th'][271]
     for ifd_name in exif_dict:
         if hasattr(exif_dict[ifd_name], "__iter__"):
             for key in exif_dict[ifd_name]:
                 exif_dict[ifd_name] = {}
 
-    exif_dict['0th'][271] = 'synthisized'
-    print exif_dict['0th'][271]
-    pprint.pprint (exif_dict)
-    print '------------------'
-    exif_bytes = piexif.dump(exif_dict)  # transformed in byte - data. ... (can     be written in file)
-    piexif.insert(exif_bytes, pict_path_fn)
+    # exif_dict['0th'][271] = 'synthesized'  # == Make
+    exif_dict['0th'][272] = 'synthesized'    # == Model ??
+    # pprint.pprint(exif_dict)
+    exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
+    # save file with changed EXIF tag:
+    piexif.insert(exif_bytes, pict.path_fn)
 
 
-def tmporary_corr_EXIF_of_synthisized_picts(list_of_pict=list_of_pict):
+def temporary_corr_EXIF_of_synthesized_picts(list_of_pict=list_of_pict):
     # http://tilloy.net/dev/pyexiv2/
     # http: // tilloy.net / dev / pyexiv2 / tutorial.html
     for pict in list_of_pict:
         if pict.Model == 'synthesized': # find synthesized images
-            # write_EXIF_Make(pict)
+            # adjust_EXIF_Model_Tag(pict)
             pass
             # print 'synthesized: ', pict
 
-    pict = list_of_pict[0]
-    write_EXIF_explore()
+    # adjust_EXIF_Model_Tag(pict = None)
+    # pict = list_of_pict[0]
+    # write_EXIF_explore()
     pass
-
-
-
 
 def calc_model_type_picts():
     # calc's number of images per model
@@ -572,7 +532,7 @@ def calc_model_type_picts():
     list_model_cnt.sort(key=lambda x: x[0])
     return list_model_cnt
 
-def split_and_combine_rgb_channels(pict_new, pict_1, pict_2, pict_3):
+def synthesize_image_and_save_it(pict_new, pict_1, pict_2, pict_3):
     im = Image.open(os.path.join(root_dir, pict_1.fn))
     red, g, b = im.split()
     im.close()
@@ -636,7 +596,7 @@ def list_synthesized_images():
         if pict.Model == 'synthesized': # find synthesized images
             print pict
 
-def synthisize_images():
+def synthesize_missing_picts():
     # following _global_ lists are used in >def calc_and_store_FN_ExposureTime_ISOSpeed<
     #   to calc FN_ExposureTime_ISOSpeed values
     global List_FNumbers
@@ -692,15 +652,18 @@ def synthisize_images():
                 pict_s.append(l_pict)
 
             # print (log_str)
-            # synthesize image:
-            split_and_combine_rgb_channels(pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
-            # store names of source images:
+            # synthesize image, save it:
+            synthesize_image_and_save_it(pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
+            # adjust >path_fn< in >pict< object
+            pict_to_synth.path_fn = (os.path.join(root_dir, synth_image_dir, pict.fn))
+            # adjust EXIF Make tag in jpeg-file (!) to :'synthesized'
+            adjust_EXIF_Model_Tag(pict_to_synth)
+            # store names of source images in >pict< object:
             pict_to_synth.sources = pict_s[0].fn + ', ' + pict_s[1].fn + ', ' + pict_s[2].fn
             # calc virtual FNumber, ExposureTime and ISOSpeed of synthesized image
             calc_and_store_FN_ExposureTime_ISOSpeed (pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
-            # mark it as synthesized image
+            # mark it as synthesized image in >pict< object
             pict_to_synth.Model   = 'synthesized'
-            pict_to_synth.path_fn = (os.path.join(root_dir, synth_image_dir, pict.fn))
             # compose log_str and write it to file
             log_str = make_new_images_logstr(cnt, pict_to_synth, pict_s)
             log_f.write(log_str)
@@ -730,27 +693,28 @@ synth_image_dir = 'synth_images'
 synth_image_dir = ''
 
 do_make_rename_file       = False
-do_synthisize_new_images  = True
-do_synthisize_new_images  = False
+do_synthesize_new_images  = True
+# do_synthesize_new_images  = False
 
 do_calc_average     = True
-do_calc_average     = False
+# do_calc_average     = False
 
 
 if __name__ == '__main__':
     root_dir, quiet, do_calc_average, do_make_rename_file = get_opts_args()
+
     # >list_of_pict< is global
     initialize_list_of_picts()
-
-    cnt_jpg_files, cnt_valid_files = make_list_of_picts_via_EXIF()  # *.jpg files in directory
-    cnt_valid_picts                = print_valid_picts_in_list()    # picts in list
-    cnt_missing_picts              = print_todo_picts_in_list()
-    ## print '\n', '{:4d}'.format(cnt_missing_picts), ' fehlen. '
 
     if do_make_rename_file:
         cnt_picts_to_rename = make_rename_batch_file()
         print "\n\n>" + batch_f_name + "< written. ", cnt_picts_to_rename, "files to rename\n"
         batch_file.close()
+
+    cnt_jpg_files, cnt_valid_files = make_list_of_picts_via_EXIF()  # *.jpg files in directory
+    cnt_valid_picts                = print_valid_picts_in_list()    # picts in list
+    cnt_missing_picts              = print_todo_picts_in_list()
+    ## print '\n', '{:4d}'.format(cnt_missing_picts), ' fehlen. '
 
     print "\n\n"
     print ">", days_cnt,           "days in total"
@@ -759,18 +723,18 @@ if __name__ == '__main__':
     print ">", cnt_valid_picts,    "valid   picts in list "
     print ">", cnt_missing_picts,  "missing picts in list "
 
-    list_model_cnt = calc_model_type_picts()
+    list_model_cnt = calc_model_type_picts()   # count number of picts for every camera model
     for model, cnt in list_model_cnt:
         print model + ':', cnt
 
     # picts_csv_write(list_of_pict)
 
-    if do_synthisize_new_images:
+    if do_synthesize_new_images:
         print "\n"
-        synthisize_images()
+        synthesize_missing_picts()
         print "\n"
 
-    # picts_csv_write(list_of_pict)
+    picts_csv_write(list_of_pict)
 
     if do_calc_average:
         calc_average_graylevel()
@@ -780,9 +744,9 @@ if __name__ == '__main__':
 
     list_of_pict = picts_csv_read()
 
-    tmporary_corr_EXIF_of_synthisized_picts(list_of_pict)
+    # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
 
-    # picts_csv_write(new_list_of_pict)
+    picts_csv_write(new_list_of_pict)
     cnt_valid_picts  = print_valid_picts_in_list(list_of_pict)
 
     print "\n> end"
