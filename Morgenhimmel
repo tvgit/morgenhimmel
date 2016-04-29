@@ -493,14 +493,16 @@ def adjust_EXIF_tags(pict):
                 exif_dict[ifd_name] = {}
 
     # exif_dict['0th'][271] = 'synthesized'  # == Make
+    # adjust Model tag:
     exif_dict['0th'][272] = 'synthesized'    # == Model ??
     # pprint.pprint(exif_dict)
-    exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
     # adjust dates:
     date_str = "2013:04:07 09:00:00"
     exif_dict['0th'][306]    = date_str
     exif_dict['Exif'][36867] = date_str
     exif_dict['Exif'][36868] = date_str
+    # convert format to bytes
+    exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
     # save file with changed EXIF tag:
     piexif.insert(exif_bytes, pict.path_fn)
     if not quiet:
@@ -720,7 +722,10 @@ def synthesize_missing_picts():
 
     log_f.close()
     # show what you've done
-    list_synthesized_images()
+    if cnt > 0:
+        list_synthesized_images()
+    else:
+        print "No images to synthesize."
 
 def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
@@ -744,16 +749,18 @@ synth_image_dir = ''
 
 do_make_rename_file       = False
 do_synthesize_new_images  = True
-do_synthesize_new_images  = False
+# do_synthesize_new_images  = False
 
 do_calc_average     = True
-do_calc_average     = False
+# do_calc_average     = False
 
 
 if __name__ == '__main__':
+    # >list_of_pict< is global
+    global list_of_pict
+
     root_dir, quiet, do_calc_average, do_make_rename_file = get_opts_args()
 
-    # >list_of_pict< is global
     initialize_list_of_picts()
 
     if do_make_rename_file:
@@ -798,6 +805,7 @@ if __name__ == '__main__':
 
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
 
-    cnt_valid_picts  = print_valid_picts_in_list(list_of_pict)
+    cnt_valid_picts = print_valid_picts_in_list()    # picts in list
+    print ">", '{:4d}'.format(cnt_valid_picts),    "valid   picts in list "
 
     print "\n> end"
