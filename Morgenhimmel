@@ -498,6 +498,9 @@ def adjust_EXIF_Model_Tag(pict):
     exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
     # save file with changed EXIF tag:
     piexif.insert(exif_bytes, pict.path_fn)
+    if not quiet:
+        print 'adjust EXIF Tag "Model" in: ' + pict.path_fn + '< to >synthesized< ok'
+
 
 
 def temporary_corr_EXIF_of_synthesized_picts(list_of_pict=list_of_pict):
@@ -742,11 +745,11 @@ if __name__ == '__main__':
     # print_all_picts_in_list()
     # picts_show_class_members(list_of_pict)
 
+    picts_csv_write(list_of_pict)
     list_of_pict = picts_csv_read()
 
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
 
-    picts_csv_write(new_list_of_pict)
     cnt_valid_picts  = print_valid_picts_in_list(list_of_pict)
 
     print "\n> end"
