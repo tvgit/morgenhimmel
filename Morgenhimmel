@@ -442,15 +442,17 @@ def picts_csv_read():
             print
 
     fn = max(result_files)
-    print '>>>>>>>>>>>>>>>>', fn
+    result_fn = os.path.join(root_dir, 'results', fn)
+    print 'Reading data from: ', result_fn,
     new_list_of_pict = []
-    with open(fn, 'r') as csv_file:
+    with open(result_fn, 'r') as csv_file:
         reader = csv.DictReader(csv_file)
         for pict_dict in reader:
             if not quiet:
                 print pict_dict          # is a dict
             pict = PictClass(pict_dict)
             new_list_of_pict.append(pict)
+    print ' successfull '
     return new_list_of_pict
 
 def make_rename_batch_file():
