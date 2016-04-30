@@ -134,7 +134,6 @@ class PictClass(object):
             datum = param
             self.cnt         = '0'
             self.datum       = datum
-            self.date        = ''
             self.Make        = 'rh'
             self.Model       = 'ToDo'
             self.date        = ''
@@ -260,12 +259,16 @@ def print_all_picts_in_list():
 
 def print_todo_picts_in_list():
     list_of_pict.sort(key = attrgetter('datum'))
-    print 'Images to synthesize:'
+    print 'Images to synthesize:' ,
     cnt_picts = 0
     for pict in list_of_pict:
         if pict.Model == 'ToDo':
             cnt_picts += 1
+            if cnt_picts == 1:
+                print
             print '{:4d}'.format(cnt_picts) + ': ', pict
+    if cnt_picts == 0:
+        print cnt_picts
     return cnt_picts
 
 def initialize_list_of_picts():
@@ -295,6 +298,7 @@ def make_list_of_picts_via_EXIF():
     cnt_jpg_picts = 0
     root, dirs, files = os.walk(root_dir).next()  # only first level
     for f_name in files:  # only files, not subdirs
+        Y_M_D_prefix = 'Y_M_D_prefix_?'
         path_f_name = os.path.join(root, f_name)
         ext = os.path.splitext(path_f_name)[-1].lower()  # get fn-extension
         if ext == ".jpg": # jpg's
@@ -303,7 +307,7 @@ def make_list_of_picts_via_EXIF():
             new_path_f_name = '*'
             Make = 'Manufacturer_?'
             Model = 'Model_?'
-            Y_M_D_prefix  = ''
+            Y_M_D_prefix  = 'Y_M_D_prefix_??'
             date_time_str = '0'
             FNumber = '0'
             ExposureTime = '0'
@@ -377,12 +381,14 @@ def make_list_of_picts_via_EXIF():
             # find pict in list_of_pict with pict.datum == Y_M_D_prefix
             new_path_f_name = os.path.join(root, new_f_name)
             pict = next((x for x in list_of_pict if x.datum == Y_M_D_prefix), None)
-            if not pict:
+            if not pict:       # for this
                 # print '! Y_M_D_prefix = >', Y_M_D_prefix,  '< No pict found!'
                 pass
             elif pict.date :
-                print '!> ', pict.date, '< exists .'
+                pass
+                # print '!> f_name = >', f_name, '< Y_M_D_prefix = >', Y_M_D_prefix, '< and >', pict.date, '< exists .'
             else:
+                # print '!> f_name = >', f_name, '< Y_M_D_prefix = >', Y_M_D_prefix, '< and >', pict.date, '< exists .'
                 pict.date        = Y_M_D_prefix
                 pict.Make        = Make
                 pict.Model       = Model
@@ -497,9 +503,13 @@ def adjust_EXIF_tags(pict):
     exif_dict['0th'][272] = 'synthesized'    # == Model ??
     # pprint.pprint(exif_dict)
     # adjust dates:
-    date_str = "2013:04:07 09:00:00"
+    dt = pict.datum
+    date_str = dt[0:4] + ':' + dt[5:7]+ ':' + dt[8:10] + ' 09:00:00'
+    # date_str = "2013:04:07 09:00:00"
     exif_dict['0th'][306]    = date_str
-    exif_dict['Exif'][36867] = date_str
+    # date_str = "2013:04:07 09:01:00"
+    exif_dict['Exif'][36867] = date_str       # == DateTimeOriginal == Kameradatum
+    # date_str = "2013:04:07 09:02:00"
     exif_dict['Exif'][36868] = date_str
     # convert format to bytes
     exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
@@ -534,15 +544,18 @@ def test_EXIF_Tag(pict):
     exif_dict['0th'][272]  = 'synthesized'   # == Model
     dt = pict.datum
     date_str = dt[0:4] + ':' + dt[5:7]+ ':' + dt[8:10] + ' 09:00:00'
+    date_str = "2013:04:07 09:00:00"
     exif_dict['0th'][306]    = date_str
-    exif_dict['Exif'][36867] = date_str
+    date_str = "2013:04:07 09:01:00"
+    exif_dict['Exif'][36867] = date_str      # == DateTimeOriginal == Kameradatum
+    date_str = "2013:04:07 09:02:00"
     exif_dict['Exif'][36868] = date_str
     print date_str
 
     # pprint.pprint(exif_dict)
     exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
     # save file with changed EXIF tag:
-    # piexif.insert(exif_bytes, pict.path_fn)
+    piexif.insert(exif_bytes, pict.path_fn)
     print 'test_EXIF_tag "Model" in: ' + pict.path_fn + '< to >synthesized< ok'
 
 
@@ -677,7 +690,7 @@ def synthesize_missing_picts():
     iter_list_model_cnt = iter(list_model_cnt)  # convert list to iterator
     model, cnt_g1X = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  first  model (G1 X)
     model, cnt_g15 = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  second model (G15)
-    # cnt of all existing images == (cnt_g1X + cnt_g15) == 100%  = 0 .. 1.0
+    # cnt_synthd_images of all existing images == (cnt_g1X + cnt_g15) == 100%  = 0 .. 1.0
     # cut == percentage of G1X - images; (1 - cut) == percentage of G15 - images
     cut =  float(cnt_g1X) / (float(cnt_g15) + float(cnt_g1X))  # relation cnt_G1X to cnt_G15
     list_of_pict.sort(key=attrgetter('Model', 'datum'))        # sort in place
@@ -685,11 +698,10 @@ def synthesize_missing_picts():
     log_fn = 'new_images_test.log'                                      # log filename
     log_f  = open(os.path.join(root_dir, synth_image_dir, log_fn), 'w') # log file in sub dir
 
-    cnt = 0
+    cnt_synthd_images = 0
     for pict in list_of_pict:
         if pict.Model == 'ToDo':          # find fn of next image to synthesize
-            cnt += 1
-            print "\r", 'synthesizing new image # ', cnt,
+            print "\r", 'synthesizing new image # ', cnt_synthd_images,
             pict_to_synth = pict
             if random.random() < cut:   # 1 .. cnt_g1X - 1   == range with G1 X images
                 low = 1
@@ -710,6 +722,9 @@ def synthesize_missing_picts():
             pict_to_synth.path_fn = (os.path.join(root_dir, synth_image_dir, pict.fn))
             # adjust EXIF Make tag in jpeg-file (!) to :'synthesized'
             adjust_EXIF_tags(pict_to_synth)
+            # inc counter
+            cnt_synthd_images += 1
+            #
             # store names of source images in >pict< object:
             pict_to_synth.sources = pict_s[0].fn + ', ' + pict_s[1].fn + ', ' + pict_s[2].fn
             # calc virtual FNumber, ExposureTime and ISOSpeed of synthesized image
@@ -717,15 +732,18 @@ def synthesize_missing_picts():
             # mark it as synthesized image in >pict< object
             pict_to_synth.Model   = 'synthesized'
             # compose log_str and write it to file
-            log_str = make_new_images_logstr(cnt, pict_to_synth, pict_s)
+            log_str = make_new_images_logstr(cnt_synthd_images, pict_to_synth, pict_s)
             log_f.write(log_str)
 
     log_f.close()
     # show what you've done
-    if cnt > 0:
+    if cnt_synthd_images > 0:
         list_synthesized_images()
+        return cnt_synthd_images
     else:
-        print "No images to synthesize."
+        print "No new images to synthesize."
+        return cnt_synthd_images
+
 
 def calc_average_graylevel():
     # print '>>>>>>>> calc_average_graylevel():'
@@ -734,12 +752,30 @@ def calc_average_graylevel():
     for pict in list_of_pict:
         # if pict.Model !=
         cnt += 1
-        print "\r  ", cnt, ': image # ', pict.path_fn, ' gray level = ',
+        print "\r  ", cnt, ': image # ', pict.fn, ' gray level = ',
         image = Image.open(pict.path_fn).convert('L')
         im_np_array  = np.array(image)
         pict.av_gray = np.average(im_np_array)
         print pict.av_gray
 
+def find_max_width_max_height():
+    cnt = 0
+    list_width, list_height = [], []
+    for pict in list_of_pict:
+        # if pict.Model !=
+        cnt += 1
+        # print "\r  ", cnt, ': image # ', pict.fn,
+        with Image.open(pict.path_fn) as img:
+            width, height = img.size
+            list_width.append (width)
+            list_height.append(height)
+
+    max_width, max_height = max(list_width), max(list_height)
+    min_width, min_height = max(list_width), max(list_height)
+
+    print '\n{:4d}'.format(cnt), 'images:', 'max_width = ', max_width, 'max_height = ', max_height
+    print '            ', 'min_width = ', min_width, 'min_height = ', min_height
+    return max_width, max_height
 
 #======================================================================
 root_dir        = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
@@ -757,7 +793,7 @@ do_calc_average     = True
 
 if __name__ == '__main__':
     # >list_of_pict< is global
-    global list_of_pict
+    # global list_of_pict
 
     root_dir, quiet, do_calc_average, do_make_rename_file = get_opts_args()
 
@@ -781,29 +817,34 @@ if __name__ == '__main__':
     print ">", '{:4d}'.format(cnt_valid_picts),    "valid   picts in list "
     print ">", '{:4d}'.format(cnt_missing_picts),  "missing picts in list "
 
-    calc_model_type_picts()   # show number of picts for every camera model
+    # calc_model_type_picts()   # show number of picts for every camera model
 
     # picts_csv_write(list_of_pict)
 
+    cnt_synthd_images = 0
     if do_synthesize_new_images:
         print "\n"
-        synthesize_missing_picts()
+        cnt_synthd_images = synthesize_missing_picts()
         print "\n"
 
     # test_EXIF_Tag(list_of_pict[0])
 
     picts_csv_write(list_of_pict)
 
-    if do_calc_average:
+    if do_calc_average and cnt_synthd_images:   # if no image changed, no calculation
         calc_average_graylevel()
+        picts_csv_write(list_of_pict)
 
     # print_all_picts_in_list()
     # picts_show_class_members(list_of_pict)
 
-    picts_csv_write(list_of_pict)
     list_of_pict = picts_csv_read()
 
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
+
+    max_w, max_h = find_max_width_max_height()
+
+
 
     cnt_valid_picts = print_valid_picts_in_list()    # picts in list
     print ">", '{:4d}'.format(cnt_valid_picts),    "valid   picts in list "
