@@ -46,9 +46,18 @@ from fractions import Fraction
 import numpy as np
 from PIL import Image
 
+path_root       = "D:\Data_Work\Other_Data\_Morgen_Himmel"
+path_sub_pics   = "_Morgen_Himmel_alle_001"
+path_sub_DWD    = "Data_DWD"
+
+# just a little bit confusing those many interweaved paths:
+root_dir        = 'D:\Data_Work\Other_Data\_Morgen_Himmel\_Morgen_Himmel_alle_001'
+synth_image_dir = 'synth_images'
+synth_image_dir = ''
+
 quiet          = True
-date_start     = '2013_04_07'
-date_end       = '2014_08_16'
+date_start     = '2013_04_07'  # 20130407
+date_end       = '2014_08_16'  # 20140816
 
 list_of_pict   = []
 List_FNumbers  = []
@@ -58,7 +67,6 @@ List_ISOSpeeds = []
 List_FNumbers_float  = []
 List_ExpoTimes_float = []
 List_ISOSpeeds_float = []
-
 
 # show command line usage
 def usage(exit_status):
@@ -70,7 +78,6 @@ def usage(exit_status):
     msg += 'Options:\n'
     msg += '  -v --verbose  verbose.\n'
     msg += '  -a --avrge    calc average gray value.\n'
-    msg += '  -d --dir=     directory.\n'
     msg += '  -s --syn      synthesize new images\n'
     msg += '  -q --quiet    quiet (default)\n'
     msg += '\n'
@@ -89,7 +96,7 @@ def get_opts_args():
 
     try:
         #  >:< option requires argument
-        opts, args = getopt.getopt(sys.argv[1:], "abd:hvqs", ["avrge", "batch", "dir=", "verbose", "quiet", "syn"])
+        opts, args = getopt.getopt(sys.argv[1:], "abhvqs", ["avrge", "batch", "verbose", "quiet", "syn"])
     except getopt.GetoptError:
         usage(2)
     if not args:
@@ -100,8 +107,6 @@ def get_opts_args():
             do_calc_average = True
         if o in ("-b", "--batch"):
             do_make_rename_file = True
-        if o in ("-d", "--dir"):
-            root_dir = a
         if o in ("-s", "--syn"):
             do_make_new_images = True
         if o in ("-w", "--write_files"):
@@ -127,7 +132,7 @@ def get_opts_args():
             print "'%s' is unwritable\n" % batch_f_name
             sys.exit(2)
 
-    return root_dir, quiet, do_calc_average, do_make_rename_file
+    return quiet, do_calc_average, do_make_rename_file
 
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass(object):
@@ -364,12 +369,12 @@ def make_list_of_picts_via_EXIF():
                     # print 'ISOSpeed =', ISOSpeed
 
                 if key.find('DateTimeOriginal') >= 0:
-                    date_time_str = data[key].printable
-                    hhmm_prefix = date_time_str[11:13] + date_time_str[14:16]
-                    hhmm_prefix = hhmm_prefix.replace(' ', '0', -1)
+                    date_time_str  = data[key].printable
+                    hhmm_prefix    = date_time_str[11:13] + date_time_str[14:16]
+                    hhmm_prefix    = hhmm_prefix.replace(' ', '0', -1)
 
-                    Y_M_D_prefix = date_time_str[0:4] + '_' + date_time_str[5:7] + '_' + date_time_str[8:10]
-                    YMDHm_prefix = Y_M_D_prefix + '_' + hhmm_prefix
+                    Y_M_D_prefix   = date_time_str[0:4] + '_' + date_time_str[5:7] + '_' + date_time_str[8:10]
+                    YMDHm_prefix   = Y_M_D_prefix + '_' + hhmm_prefix
                     if not quiet: print Y_M_D_prefix, YMDHm_prefix
                     if re.match(reg_hhmm, f_name):  # re.match == regex am Stringanfang?
                         new_f_name = YMDHm_prefix + '_' + f_name[5:]
@@ -519,9 +524,11 @@ def adjust_EXIF_tags(pict):
         print 'adjust EXIF Tag "Model" in: ' + pict.path_fn + '< to >synthesized< ok'
 
 def test_EXIF_Tag(pict):
-    l_path = "D:\Data_Work\Other_Data\Morgen_Himmel\_Morgen_Himmel_alle_001"
+    # path_root = "D:\Data_Work\Other_Data\_Morgen_Himmel\"
+    # path_sub_pics = "_Morgen_Himmel_alle_001"
+    # l_path = "D:\Data_Work\Other_Data\_Morgen_Himmel\_Morgen_Himmel_alle_001"
     l_fn   = "2013_04_07_1222_IMG_2553_01.JPG"
-    pict.path_fn = os.path.join(l_path, l_fn)
+    pict.path_fn = os.path.join(path_root, path_sub_pics, l_fn)
     print 'test_EXIF_Tag: ', pict.path_fn
     exif_dict = piexif.load(pict.path_fn)  # EXIF data as dictionary ...     (can not be written in file)
     exif_bytes = piexif.dump(exif_dict)    # transformed in byte - data. ... (can     be written in file)
@@ -779,10 +786,37 @@ def find_max_width_max_height():
 
 def connect_to_DWD_data():
     # connect pict to temperature, humidity, cloudiness,
+    # temperature
+    DWD_data_file_fn = "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
+    DWD_data_path_fn = os.path.join(path_root, path_sub_DWD, DWD_data_file_fn)
+    # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; LUFTTEMPERATUR;REL_FEUCHTE;eor
+    print DWD_data_path_fn
+    data_list  = []   # == whole line of input file
+    time_list  = []   # == timestamp  of input file
+    val_1_list = []   # == data_value #1 of input file, i.e. temperature, humidity or cloudiness and so on
+    val_2_list = []   # == data_value #2 of input file, i.e. temperature, humidity or cloudiness and so on
 
-    l_path = "D:\Data_Work\Other_Data\Morgen_Himmel\Data_DWD\Data_Temperature"
-    l_fn   = "produkt_temp_Terminwerte_19970701_20151231_03379.txt"
-    DWD_path_fn = os.path.join(l_path, l_fn)
+    # Temperature: "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
+    # Make list of
+    with open(DWD_data_path_fn) as data_f:
+        for line in data_f:
+            data_list.append (line)                      # whole line
+            time_list.append (long(line.split(';')[1]))  # timestamps  == second row
+            val_1_list.append(float(line.split(';')[4]))  # temperature at this timestamps
+            val_2_list.append(float(line.split(';')[5]))  # temperature at this timestamps
+
+            # print line.split(';')[1]
+
+    list_of_pict.sort(key = attrgetter('datum'))
+    for pict in list_of_pict:
+        pict_time_long = long (pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
+        print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
+
+        list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
+        delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
+        print "time_list[idx] =", time_list[idx], "delta_t =", delta_t, # "idx =", idx,
+        print "temperature =", val_1_list[idx],
+        print "humidity =",    val_2_list[idx]
 
     # read it an split via text.split(';')
 
@@ -790,11 +824,6 @@ def connect_to_DWD_data():
 
 
 #======================================================================
-root_dir        = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
-root_dir        = 'D:\Data_Work\Other_Data\Morgen_Himmel\_Morgen_Himmel_alle_001'
-synth_image_dir = 'synth_images'
-synth_image_dir = ''
-
 do_make_rename_file       = False
 do_synthesize_new_images  = True
 # do_synthesize_new_images  = False
@@ -807,7 +836,7 @@ if __name__ == '__main__':
     # >list_of_pict< is global
     # global list_of_pict
 
-    root_dir, quiet, do_calc_average, do_make_rename_file = get_opts_args()
+    quiet, do_calc_average, do_make_rename_file = get_opts_args()
 
     initialize_list_of_picts()
 
