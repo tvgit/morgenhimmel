@@ -47,6 +47,8 @@ import numpy as np
 from PIL import Image
 
 quiet          = True
+date_start     = '2013_04_07'
+date_end       = '2014_08_16'
 
 list_of_pict   = []
 List_FNumbers  = []
@@ -274,10 +276,8 @@ def print_todo_picts_in_list():
 def initialize_list_of_picts():
     # >list_of_pict< is global
     global cnt_days
-    date1   = '2013_04_07'
-    date2   = '2014_08_16'
-    start   = datetime.datetime.strptime(date1, '%Y_%m_%d')
-    end     = datetime.datetime.strptime(date2, '%Y_%m_%d')
+    start   = datetime.datetime.strptime(date_start, '%Y_%m_%d')
+    end     = datetime.datetime.strptime(date_end, '%Y_%m_%d')
     step    = datetime.timedelta(days=1)
     cnt_days= 0
     act_day = start
@@ -777,6 +777,18 @@ def find_max_width_max_height():
     print '            ', 'min_width = ', min_width, 'min_height = ', min_height
     return max_width, max_height
 
+def connect_to_DWD_data():
+    # connect pict to temperature, humidity, cloudiness,
+
+    l_path = "D:\Data_Work\Other_Data\Morgen_Himmel\Data_DWD\Data_Temperature"
+    l_fn   = "produkt_temp_Terminwerte_19970701_20151231_03379.txt"
+    DWD_path_fn = os.path.join(l_path, l_fn)
+
+    # read it an split via text.split(';')
+
+    pass
+
+
 #======================================================================
 root_dir        = 'D:\Data_Work\Photos\_Extra\Morgen_Himmel\Morgen_Himmel_alle'
 root_dir        = 'D:\Data_Work\Other_Data\Morgen_Himmel\_Morgen_Himmel_alle_001'
@@ -844,9 +856,9 @@ if __name__ == '__main__':
 
     max_w, max_h = find_max_width_max_height()
 
-
-
     cnt_valid_picts = print_valid_picts_in_list()    # picts in list
     print ">", '{:4d}'.format(cnt_valid_picts),    "valid   picts in list "
+
+    connect_to_DWD_data()
 
     print "\n> end"
