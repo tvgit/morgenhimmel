@@ -71,6 +71,14 @@ List_FNumbers_float  = []
 List_ExpoTimes_float = []
 List_ISOSpeeds_float = []
 
+res_image      = None
+res_curves     = None
+res_figures    = None
+
+border = 200
+x_pict = (4000 + border + border) // 4
+y_pict = (3000 + border + border) // 4
+
 # show command line usage
 def usage(exit_status):
     msg = 'Usage: Photos_Rename.py [OPTIONS] \n'
@@ -816,12 +824,11 @@ def connect_picts_with_DWD_data():
     # temperature, humidity:
     DWD_data_file_fn = "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
     DWD_data_path_fn = os.path.join(path_root, path_sub_DWD, DWD_data_file_fn)
-    print DWD_data_path_fn
+    # print DWD_data_path_fn
     data_list  = []   # == whole line of input file
     time_list  = []   # == timestamp  of input file
     val_1_list = []   # == data_value #1 of input file, i.e. temperature, humidity or cloudiness and so on
     val_2_list = []   # == data_value #2 of input file, i.e. temperature, humidity or cloudiness and so on
-
     # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; LUFTTEMPERATUR;REL_FEUCHTE;eor
     with open(DWD_data_path_fn) as data_f:
         for line in data_f:
@@ -833,13 +840,13 @@ def connect_picts_with_DWD_data():
     list_of_pict.sort(key = attrgetter('datum'))
     for pict in list_of_pict:
         pict_time_long = long (pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
-        print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
-
+        # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
         list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
         delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
-        print "time_list[idx] =", time_list[idx], "delta_t =", delta_t, # "idx =", idx,
-        print "temperature =", val_1_list[idx],
-        print "humidity =",    val_2_list[idx]
+        if not quiet:
+            print "time_list[idx] =", time_list[idx], "delta_t =", delta_t, # "idx =", idx,
+            print "temperature =", val_1_list[idx],
+            print "humidity =",    val_2_list[idx]
         pict.temperature = val_1_list[idx]
         pict.humidity = val_2_list[idx]
 
@@ -847,14 +854,13 @@ def connect_picts_with_DWD_data():
     # DIFFUS_HIMMEL_KW_J, GLOBAL_KW_J, ATMOSPHAERE_LW_J:
     DWD_data_file_fn = "Data_Solar\produkt_strahlung_Stundenwerte_19610101_20160331_05404_reduced.txt"
     DWD_data_path_fn = os.path.join(path_root, path_sub_DWD, DWD_data_file_fn)
-    print DWD_data_path_fn
+    # print DWD_data_path_fn
     data_list = []  # == whole line of input file
     time_list = []  # == timestamp  of input file
     val_1_list = [] # == data_value #1 of input file, DIFFUS_HIMMEL_KW_J
     val_2_list = [] # == data_value #2 of input file, GLOBAL_KW_J
     val_3_list = [] # == data_value #2 of input file, ATMOSPHAERE_LW_J
     val_4_list = [] # == data_value #2 of input file, SONNENZENIT
-
     # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; SONNENSCHEINDAUER;DIFFUS_HIMMEL_KW_J;GLOBAL_KW_J;ATMOSPHAERE_LW_J;SONNENZENIT;MESS_DATUM_WOZ;eor
     with open(DWD_data_path_fn) as data_f:
         for line in data_f:
@@ -868,32 +874,98 @@ def connect_picts_with_DWD_data():
     list_of_pict.sort(key=attrgetter('datum'))
     for pict in list_of_pict:
         pict_time_long = long(pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
-        # print "pict.datum =", pict.datum,
-        print " pict_time =", pict_time_long,
+        # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
         list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
         delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
-        print "time_list[idx] =", time_list[idx], # "delta_t =", delta_t,  "idx =", idx,
-        print "HIMMEL_KW_J =", val_1_list[idx],
-        print "GLOBAL_KW_J =", val_2_list[idx],
-        print "ATMOSPHAERE_LW_J =", val_3_list[idx],
-        print "SONNENZENIT =", val_4_list[idx]
+        if not quiet:
+            print "time_list[idx] =", time_list[idx], # "delta_t =", delta_t,  "idx =", idx,
+            print "HIMMEL_KW_J =", val_1_list[idx],
+            print "GLOBAL_KW_J =", val_2_list[idx],
+            print "ATMOSPHAERE_LW_J =", val_3_list[idx],
+            print "SONNENZENIT =", val_4_list[idx]
 
         pict.sky_KW_J    = val_1_list[idx]
         pict.global_KW_J = val_2_list[idx]
         pict.atmo_KW_J   = val_3_list[idx]
         pict.sun_zenit   = val_4_list[idx]
-        # pict.temperature = val_1_list[idx]
-        # pict.humidity = val_2_list[idx]
 
+
+def reduce_image_resolution():
+    global x_pict
+    global y_pict
+
+    # x_max = 16
+    # y_max = 31
+    # x_dim = x_pict * x_max ; print "x_dim" , x_dim,
+    # y_dim = y_pict * y_max ; print "y_dim" , y_dim, ; print "x_dim * y_dim (MB)" , x_dim * y_dim // 1000000
+
+    list_of_pict.sort(key=attrgetter('datum'))
+    for pict in list_of_pict:
+        img = Image.open(pict.path_fn)
+        fn = make_result_path_fn('resized', pict.path_fn)
+        print fn
+        # img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
+        # img_resized.save(fn)
+
+
+def stitch_images():
+    # http://stackoverflow.com/questions/10647311/how-do-you-merge-images-using-pil-pillow
+    # https://www.youtube.com/watch?v=ZTjiDStstmc # image processing beyond PIL
+    # https://www.youtube.com/watch?v=Wvvxazwi2IY # Image Processing in Python with Scikits-image
+    global res_image
+    global res_curves
+    global res_figures
+    global x_pict
+    global y_pict
+
+    x_max = 16
+    y_max = 31
+    x_dim = x_pict * x_max ; print "x_dim" , x_dim,
+    y_dim = y_pict * y_max ; print "y_dim" , y_dim, ; print "x_dim * y_dim (MB)" , x_dim * y_dim // 1000000
+
+    fn = make_result_path_fn('results', act_date_time_str() + 'img_result.jpg')   # fn von csv file
+    print fn
+
+    res_image = Image.new('RGB', (x_dim, y_dim))
+
+    list_of_pict.sort(key=attrgetter('datum'))
+    cnt_valid_picts = 0
+    pict_iter = iter(list_of_pict)
+    y_idx = 0
+    for y_cnt in range (0, y_max):
+        x_idx = 0
+        for x_cnt in range(0, x_max):
+            # print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx + x_pict) + ':' + str(y_idx + y_pict) + ' | ' ,
+            pict = pict_iter.next()
+            img  = Image.open(pict.path_fn)
+            img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
+            res_image.paste(img_resized, (x_idx, y_idx))
+            cnt_valid_picts += 1
+            x_idx += x_pict
+            print pict.datum,
+
+        y_idx += y_pict
+        print
+
+    res_image.save(fn, optimize=True, quality=95)
+
+            # print_all_picts_in_list():
 
 #======================================================================
-do_make_rename_file       = False
-do_synthesize_new_images  = True
-# do_synthesize_new_images  = False
+# do_make_rename_file = True
+do_make_rename_file = False
 
-do_calc_average       = True
-# do_calc_average     = False
+# do_synthesize_new_images  = True
+do_synthesize_new_images  = False
 
+# do_calc_average     = True
+do_calc_average     = False
+
+# do_connect_with_DWD_data = True
+do_connect_with_DWD_data = Fal= False
+
+do_stitch_images = True
+# do_stitch_images = False
 
 if __name__ == '__main__':
     # >list_of_pict< is global
@@ -925,32 +997,36 @@ if __name__ == '__main__':
     # picts_csv_write(list_of_pict)
 
     if do_synthesize_new_images:
-        cnt_synthd_images = 0
-        print "\n"
         cnt_synthd_images = synthesize_missing_picts()
+        cnt_valid_picts = print_valid_picts_in_list()  # picts in list
+        print ">", '{:4d}'.format(cnt_valid_picts), " valid   picts in list "
         picts_csv_write(list_of_pict)
-        print "\n"
+        list_of_pict = picts_csv_read()
 
     # test_EXIF_Tag(list_of_pict[0])
 
     if do_calc_average and cnt_synthd_images:   # if no image changed, no calculation
         calc_average_graylevel()
         picts_csv_write(list_of_pict)
+        list_of_pict = picts_csv_read()
 
     # print_all_picts_in_list()
     # picts_show_class_members(list_of_pict)
 
-    list_of_pict = picts_csv_read()
-
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
 
-    # max_w, max_h = find_max_width_max_height_of_pict() # All picts are 4000 x 3000
+    # max_w, max_h = find_max_width_max_height_of_pict() # => All picts are 4000 x 3000
 
-    cnt_valid_picts = print_valid_picts_in_list()    # picts in list
-    print ">", '{:4d}'.format(cnt_valid_picts),      "valid   picts in list "
+    if do_connect_with_DWD_data:
+        connect_picts_with_DWD_data()
+        picts_csv_write(list_of_pict)
+        list_of_pict = picts_csv_read()
 
-    connect_picts_with_DWD_data()
+    list_of_pict = picts_csv_read()
 
-    picts_csv_write(list_of_pict)
+    reduce_image_resolution()
+
+    # if do_stitch_images:
+    #     stitch_images()
 
     print "\n> end"
