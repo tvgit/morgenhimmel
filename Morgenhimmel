@@ -75,9 +75,11 @@ res_image      = None
 res_curves     = None
 res_figures    = None
 
+scale_factor = 6
 border = 200
-x_pict = (4000 + border + border) // 4
-y_pict = (3000 + border + border) // 4
+x_pict = (4000 + border + border) // scale_factor
+y_pict = (3000 + border + border) // scale_factor
+
 
 # show command line usage
 def usage(exit_status):
@@ -894,18 +896,13 @@ def reduce_image_resolution():
     global x_pict
     global y_pict
 
-    # x_max = 16
-    # y_max = 31
-    # x_dim = x_pict * x_max ; print "x_dim" , x_dim,
-    # y_dim = y_pict * y_max ; print "y_dim" , y_dim, ; print "x_dim * y_dim (MB)" , x_dim * y_dim // 1000000
-
     list_of_pict.sort(key=attrgetter('datum'))
     for pict in list_of_pict:
         img = Image.open(pict.path_fn)
-        fn = make_result_path_fn('resized', pict.path_fn)
+        fn = make_result_path_fn('resized', pict.fn)
         print fn
-        # img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
-        # img_resized.save(fn)
+        img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
+        img_resized.save(fn)
 
 
 def stitch_images():
@@ -920,13 +917,17 @@ def stitch_images():
 
     x_max = 16
     y_max = 31
-    x_dim = x_pict * x_max ; print "x_dim" , x_dim,
-    y_dim = y_pict * y_max ; print "y_dim" , y_dim, ; print "x_dim * y_dim (MB)" , x_dim * y_dim // 1000000
+    print '\n'
+    x_dim = x_pict * x_max ; print "x_dim =" , x_dim,
+    y_dim = y_pict * y_max ; print "y_dim =" , y_dim, ; print "(x_dim * y_dim (MB)) =" , x_dim * y_dim // 1000000
+    print '\n'
 
     fn = make_result_path_fn('results', act_date_time_str() + 'img_result.jpg')   # fn von csv file
-    print fn
+    print '\n', fn, '\n'
 
-    res_image = Image.new('RGB', (x_dim, y_dim))
+    res_image = Image.new('RGB', (x_dim, y_dim), (0, 255, 0, 0))
+    res_image.save(fn, optimize=True, quality=50)
+    return
 
     list_of_pict.sort(key=attrgetter('datum'))
     cnt_valid_picts = 0
@@ -935,21 +936,26 @@ def stitch_images():
     for y_cnt in range (0, y_max):
         x_idx = 0
         for x_cnt in range(0, x_max):
-            # print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx + x_pict) + ':' + str(y_idx + y_pict) + ' | ' ,
             pict = pict_iter.next()
             img  = Image.open(pict.path_fn)
-            img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
-            res_image.paste(img_resized, (x_idx, y_idx))
+            print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx + x_pict) + ':' + str(y_idx + y_pict) + ' | ' ,
+            # print pict.path_fn, ' * ',
+            # img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
+            # res_image.paste(img_resized, (x_idx, y_idx))
+            res_image.paste(img, (x_idx, y_idx))
             cnt_valid_picts += 1
             x_idx += x_pict
-            print pict.datum,
+            # print pict.datum,
 
         y_idx += y_pict
         print
 
-    res_image.save(fn, optimize=True, quality=95)
+    # res_image.show(fn)
+    print '\n', fn, '\n'
+    res_image.save(fn, optimize=True, quality=50)
+    # res_image.save(fn, optimize=True, quality=95)
 
-            # print_all_picts_in_list():
+        # print_all_picts_in_list():
 
 #======================================================================
 # do_make_rename_file = True
@@ -1024,9 +1030,11 @@ if __name__ == '__main__':
 
     list_of_pict = picts_csv_read()
 
-    reduce_image_resolution()
+    # reduce_image_resolution()
 
-    # if do_stitch_images:
-    #     stitch_images()
+    # 2016-05_04 images resized to 1/4 of original dimensions
+
+    if do_stitch_images:
+        stitch_images()
 
     print "\n> end"
