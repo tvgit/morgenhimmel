@@ -944,7 +944,7 @@ def stitch_images():
     # fn = make_result_path_fn('results', act_date_time_str() + 'img_result.png')   # fn von image file
     print '\n', fn, '\n'
 
-    res_image = Image.new('RGB', (x_img_dim, x_img_dim), (100, 100, 25, 0))
+    res_image = Image.new('RGB', (x_img_dim, y_img_dim), (100, 100, 25, 0))
 
     # res_image.save(fn, optimize=True, quality=50)
     # return
