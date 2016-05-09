@@ -6,7 +6,7 @@
 # rh: 2016-04_09   vs 0.3
 #
 # 497 Bilder, alle 4000 px * 3000 px // 496 = 2**4 * 31 == perfect number.
-# 16*4000 * 31*3000 ==  64000 * 93000 ...
+# 16*(4000 + 2*border) * 31*(3000 + 2*border) ==  64000 * 93000 + (32 * border)
 #
 # Version um:
 # 1. die Morgenphotos umzubenennen: YYYY_MM_DD_HH_mm_SS_IMGxxxx.jpg
@@ -75,10 +75,19 @@ res_image      = None
 res_curves     = None
 res_figures    = None
 
-scale_factor = 6
-border = 200
-x_pict = (4000 + border + border) // scale_factor
-y_pict = (3000 + border + border) // scale_factor
+
+x_cnt_pct      = 16
+y_cnt_pct      = 31
+
+scale_factor   = 3
+border         = 2 * 3 * 4 * 5          # = 120
+border         = border // scale_factor
+x_pict         = 4000   // scale_factor # pixels on x-axis of single pict
+y_pict         = 3000   // scale_factor # pixels on x-axis of single pict
+
+# img == result image
+x_img_dim      = (x_cnt_pct * x_pict) + (x_cnt_pct * 2 * border)  # pixels on x-axis of result image
+y_img_dim      = (y_cnt_pct * y_pict) + (y_cnt_pct * 2 * border)  # pixels on y-axis of result image
 
 
 # show command line usage
@@ -893,16 +902,17 @@ def connect_picts_with_DWD_data():
 
 
 def reduce_image_resolution():
-    global x_pict
-    global y_pict
+    global x_pict  # pixels on x-axis of single pict
+    global y_pict  # pixels on y-axis of single pict
 
     list_of_pict.sort(key=attrgetter('datum'))
     for pict in list_of_pict:
         img = Image.open(pict.path_fn)
-        fn = make_result_path_fn('resized', pict.fn)
-        print fn
+        fn  = make_result_path_fn('resized_3', pict.fn)
+        print 'resizing: ', fn,
         img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
         img_resized.save(fn)
+        print ' done.'
 
 
 def stitch_images():
@@ -912,50 +922,57 @@ def stitch_images():
     global res_image
     global res_curves
     global res_figures
-    global x_pict
-    global y_pict
 
-    x_max = 16
-    y_max = 31
+    global x_pict   # pixels on x-axis of single pict
+    global y_pict   # pixels on y-axis of single pict
+    global border   # border
+
+    x_max = x_cnt_pct # global
+    y_max = y_cnt_pct # global
     print '\n'
-    x_dim = x_pict * x_max ; print "x_dim =" , x_dim,
-    y_dim = y_pict * y_max ; print "y_dim =" , y_dim, ; print "(x_dim * y_dim (MB)) =" , x_dim * y_dim // 1000000
+    print "x_img_dim =" , x_img_dim,
+    print "y_img_dim =" , y_img_dim,
+    print "(x_img_dim * y_img_dim (MB)) =" , x_img_dim * y_img_dim // 1000000
+    print "x_pict =" , x_pict,
+    print "y_pict =" , y_pict,
+    print "border =" , border
+    print "x_max =" , x_max,
+    print "y_max =" , y_max,
     print '\n'
 
-    fn = make_result_path_fn('results', act_date_time_str() + 'img_result.jpg')   # fn von csv file
+    fn = make_result_path_fn('results', act_date_time_str() + 'img_result.jpg')   # fn von image file
+    # fn = make_result_path_fn('results', act_date_time_str() + 'img_result.png')   # fn von image file
     print '\n', fn, '\n'
 
-    res_image = Image.new('RGB', (x_dim, y_dim), (0, 255, 0, 0))
-    res_image.save(fn, optimize=True, quality=50)
-    return
+    res_image = Image.new('RGB', (x_img_dim, x_img_dim), (100, 100, 25, 0))
+
+    # res_image.save(fn, optimize=True, quality=50)
+    # return
 
     list_of_pict.sort(key=attrgetter('datum'))
-    cnt_valid_picts = 0
     pict_iter = iter(list_of_pict)
     y_idx = 0
     for y_cnt in range (0, y_max):
-        x_idx = 0
+        y_idx += border
+        x_idx  = 0
         for x_cnt in range(0, x_max):
+            x_idx += border
             pict = pict_iter.next()
             img  = Image.open(pict.path_fn)
-            print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx + x_pict) + ':' + str(y_idx + y_pict) + ' | ' ,
-            # print pict.path_fn, ' * ',
-            # img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
-            # res_image.paste(img_resized, (x_idx, y_idx))
+            print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx) + ':' + str(y_idx) + ' | ' ,
             res_image.paste(img, (x_idx, y_idx))
-            cnt_valid_picts += 1
-            x_idx += x_pict
-            # print pict.datum,
+            x_idx += x_pict + border
 
-        y_idx += y_pict
+        y_idx += y_pict + border
         print
 
     # res_image.show(fn)
     print '\n', fn, '\n'
+    print '\n Dimensions x * y:', x_idx, ' * ', y_idx, '\n\n'
     res_image.save(fn, optimize=True, quality=50)
     # res_image.save(fn, optimize=True, quality=95)
 
-        # print_all_picts_in_list():
+    # print_all_picts_in_list():
 
 #======================================================================
 # do_make_rename_file = True
