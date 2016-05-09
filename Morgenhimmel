@@ -953,17 +953,17 @@ def stitch_images():
     pict_iter = iter(list_of_pict)
     y_idx = 0
     for y_cnt in range (0, y_max):
-        y_idx += border
-        x_idx  = 0
+        y_idx = y_idx + border
+        x_idx = 0
         for x_cnt in range(0, x_max):
-            x_idx += border
+            x_idx = x_idx + border
             pict = pict_iter.next()
             img  = Image.open(pict.path_fn)
             print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx) + ':' + str(y_idx) + ' | ' ,
             res_image.paste(img, (x_idx, y_idx))
-            x_idx += x_pict + border
+            x_idx = x_idx + x_pict + border
 
-        y_idx += y_pict + border
+        y_idx = y_idx + y_pict + border
         print
 
     # res_image.show(fn)
@@ -971,7 +971,6 @@ def stitch_images():
     print '\n Dimensions x * y:', x_idx, ' * ', y_idx, '\n\n'
     res_image.save(fn, optimize=True, quality=50)
     # res_image.save(fn, optimize=True, quality=95)
-
     # print_all_picts_in_list():
 
 #======================================================================
