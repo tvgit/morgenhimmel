@@ -1015,6 +1015,8 @@ def calc_measurement_coord():
         dict_values[fieldname] = []  # dict with k:v == fieldname:[pict[0].fieldname, pict[1].fieldname, ...]
         dict_min[fieldname]    = []  # dict with k:v == fieldname:[min (pict[0..n)].fieldname)]
         dict_max[fieldname]    = []  # dict with k:v == fieldname:[max (pict[0..n)].fieldname)]
+
+
     for pict in list_of_pict:
         for fieldname in fieldnames:
             dict_values[fieldname].append(getattr(pict, fieldname))  # pict.fieldname
@@ -1057,7 +1059,7 @@ do_synthesize_new_images = True
 do_synthesize_new_images = False
 
 do_calc_average          = True
-# do_calc_average          = False
+do_calc_average          = False
 
 do_connect_with_DWD_data = True
 # do_connect_with_DWD_data = False
@@ -1099,6 +1101,7 @@ if __name__ == '__main__':
     # calc_model_type_picts()   # show number of picts for every camera model
     # picts_csv_write(list_of_pict)
 
+    cnt_synthd_images = 0
     if do_synthesize_new_images:
         cnt_synthd_images = synthesize_missing_picts()
         cnt_valid_picts = print_valid_picts_in_list()  # picts in list
