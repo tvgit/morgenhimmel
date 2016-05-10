@@ -35,7 +35,6 @@ import csv
 import datetime
 import exifread       # EXIF write python 2.7xx
 import getopt
-import json
 import os
 import pprint
 import piexif         # EXIF write python 2.7xx
@@ -75,20 +74,21 @@ res_image      = None
 res_curves     = None
 res_figures    = None
 
-
 x_cnt_pct      = 16
 y_cnt_pct      = 31
 
+x_pict_org     = 4000 # original picture
+y_pict_org     = 3000 # original picture
+
 scale_factor   = 3
-border         = 2 * 3 * 4 * 5          # = 120
+border         = 2 * 3 * 4 * 5              # = 120
 border         = border // scale_factor
-x_pict         = 4000   // scale_factor # pixels on x-axis of single pict
-y_pict         = 3000   // scale_factor # pixels on x-axis of single pict
+x_pict         = x_pict_org // scale_factor # pixels on x-axis of single pict
+y_pict         = y_pict_org // scale_factor # pixels on y-axis of single pict
 
 # img == result image
-x_img_dim      = (x_cnt_pct * x_pict) + (x_cnt_pct * 2 * border)  # pixels on x-axis of result image
-y_img_dim      = (y_cnt_pct * y_pict) + (y_cnt_pct * 2 * border)  # pixels on y-axis of result image
-
+x_img_dim      = (x_cnt_pct * x_pict) + (x_cnt_pct * border) + 3 * border # pixels on x-axis of result image
+y_img_dim      = (y_cnt_pct * y_pict) + (y_cnt_pct * border) + 3 * border # pixels on y-axis of result image
 
 # show command line usage
 def usage(exit_status):
@@ -176,16 +176,24 @@ class PictClass(object):
             self.ExpoTime    = ''
             self.ISOSpeed    = ''
             self.ISOSpeed_str= ''
-            self.av_gray     = '99'
+            self.av_gray     = '-999.0'
             self.temperature = ''
             self.humidity    = ''
             self.sky_KW_J    = '' #HIMMEL_KW_J
             self.global_KW_J = '' #GLOBAL_KW_J
             self.atmo_KW_J   = '' #ATMOSPHAERE_LW_J
             self.sun_zenit   = '' #SONNENZENIT
-
-
-
+            self.sources = ''
+            self.x_coord     = '' # x_coord in result_image
+            self.y_coord     = '' # y_coord in result_image
+            self.tmp_y_coord = ''
+            self.hum_y_coord = ''
+            self.sky_y_coord = '' #HIMMEL_KW_J
+            self.glb_y_coord = '' #GLOBAL_KW_J
+            self.atm_y_coord = '' #ATMOSPHAERE_LW_J
+            self.sun_y_coord = '' #SONNENZENIT
+            # self.xxxxxxx     = ''
+            # self.xxxxxxx     = ''
 
         elif type (param) == dict:  # when reading from csv-file initialize >pict< with dict.
             dct = param
@@ -196,8 +204,8 @@ class PictClass(object):
             sys.exit(2)
 
     def __repr__(self):
-        return '%s; '*22 % ( \
-        self.cnt ,
+        return '%s; '*30 % (
+        self.cnt          ,
         self.datum        ,
         self.Make         ,
         self.Model        ,
@@ -218,7 +226,15 @@ class PictClass(object):
         self.sky_KW_J     ,
         self.global_KW_J  ,
         self.atmo_KW_J    ,
-        self.sun_zenit
+        self.sun_zenit    ,
+        self.x_coord      ,
+        self.y_coord      ,
+        self.tmp_y_coord  ,
+        self.hum_y_coord  ,
+        self.sky_y_coord  ,
+        self.glb_y_coord  ,
+        self.atm_y_coord  ,
+        self.sun_y_coord
         )
 
     fieldnames = [ "cnt",                 # used in: >picts_csv_write()< writing dict
@@ -230,7 +246,9 @@ class PictClass(object):
         "ISOSpeed", "ISOSpeed_str",
         "av_gray",
         "temperature", "humidity",
-        "sky_KW_J" , "global_KW_J", "atmo_KW_J", "sun_zenit"
+        "sky_KW_J", "global_KW_J", "atmo_KW_J", "sun_zenit",
+        "x_coord", "y_coord",
+        "tmp_y_coord", "hum_y_coord", "sky_y_coord", "glb_y_coord", "atm_y_coord", "sun_y_coord"
         ]
 
 
@@ -448,7 +466,7 @@ def make_list_of_picts_via_EXIF():
                 pict.ExpoTime    = ExposureTime_float # ExposureTime
                 pict.ISOSpeed    = ISOSpeed
                 pict.ISOSpeed_str= ISOSpeed
-                pict.av_gray     = 99
+                pict.av_gray     = -999.0
 
     cnt_valid_picts = 0
     for pict in list_of_pict:
@@ -802,7 +820,6 @@ def calc_average_graylevel():
     list_of_pict.sort(key = attrgetter('Model', 'datum'))
     cnt = 0
     for pict in list_of_pict:
-        # if pict.Model !=
         cnt += 1
         print "\r  ", cnt, ': image # ', pict.fn, ' gray level = ',
         image = Image.open(pict.path_fn).convert('L')
@@ -900,6 +917,11 @@ def connect_picts_with_DWD_data():
         pict.atmo_KW_J   = val_3_list[idx]
         pict.sun_zenit   = val_4_list[idx]
 
+        if pict.global_KW_J == -999.0:
+            pict.global_KW_J = ''
+        if pict.sun_zenit == -999.0:
+            pict.sun_zenit = ''
+
 
 def reduce_image_resolution():
     global x_pict  # pixels on x-axis of single pict
@@ -951,43 +973,100 @@ def stitch_images():
 
     list_of_pict.sort(key=attrgetter('datum'))
     pict_iter = iter(list_of_pict)
-    y_idx = 0
+    y_idx = border
     for y_cnt in range (0, y_max):
         y_idx = y_idx + border
-        x_idx = 0
+        x_idx = border
         for x_cnt in range(0, x_max):
             x_idx = x_idx + border
             pict = pict_iter.next()
             img  = Image.open(pict.path_fn)
             print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx) + ':' + str(y_idx) + ' | ' ,
+            pict.x_coord = str(x_idx) # x_coord in result_image
+            pict.y_coord = str(y_idx) # y_coord in result_image
             res_image.paste(img, (x_idx, y_idx))
-            x_idx = x_idx + x_pict + border
+            x_idx = x_idx + x_pict
 
-        y_idx = y_idx + y_pict + border
+        y_idx = y_idx + y_pict
         print
 
     # res_image.show(fn)
     print '\n', fn, '\n'
-    print '\n Dimensions x * y:', x_idx, ' * ', y_idx, '\n\n'
+    print '\n Dimensions x * y:', x_idx, '*', y_idx, '\n\n'
     res_image.save(fn, optimize=True, quality=50)
     # res_image.save(fn, optimize=True, quality=95)
     # print_all_picts_in_list():
 
+
+def calc_measurement_coord():
+    list_of_pict.sort(key=attrgetter('datum'))
+    pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
+    # fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
+    fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit',
+                  'x_coord', 'y_coord',
+                  'tmp_y_coord', 'hum_y_coord', 'sky_y_coord', 'glb_y_coord', 'atm_y_coord', 'sun_y_coord']
+
+    print fieldnames
+    dict_values = {}
+    dict_min = {}
+    dict_max = {}
+
+    for fieldname in fieldnames:
+        dict_values[fieldname] = []  # dict with k:v == fieldname:[pict[0].fieldname, pict[1].fieldname, ...]
+        dict_min[fieldname]    = []  # dict with k:v == fieldname:[min (pict[0..n)].fieldname)]
+        dict_max[fieldname]    = []  # dict with k:v == fieldname:[max (pict[0..n)].fieldname)]
+    for pict in list_of_pict:
+        for fieldname in fieldnames:
+            dict_values[fieldname].append(getattr(pict, fieldname))  # pict.fieldname
+
+    for fieldname in fieldnames:
+        # dict_min[fieldname].append (min (dict_values[fieldname]))  # pict.fieldname
+        # dict_max[fieldname].append (max (dict_values[fieldname]))  # pict.fieldname
+        dict_min[fieldname] = (min (dict_values[fieldname]))  # pict.fieldname
+        dict_max[fieldname] = (max (dict_values[fieldname]))  # pict.fieldname
+        print fieldname, dict_min[fieldname], dict_max[fieldname]
+
+    #     # x_pict = x_pict_org // scale_factor  # pixels on x-axis of single pict
+    #     # y_pict = y_pict_org // scale_factor  # pixels on y-axis of single pict
+    #     pict.temperature = ''
+    #     pict.humidity    = ''
+    #     pict.sky_KW_J    = ''  # HIMMEL_KW_J
+    #     pict.global_KW_J = ''  # GLOBAL_KW_J
+    #     pict.atmo_KW_J   = ''  # ATMOSPHAERE_LW_J
+    #     pict.sun_zenit   = ''  # SONNENZENIT
+    #     pict.tmp_y_coord = ''
+    #     pict.hum_y_coord = ''
+    #     pict.sky_y_coord = ''  # HIMMEL_KW_J
+    #     pict.glb_y_coord = ''  # GLOBAL_KW_J
+    #     pict.atm_y_coord = ''  # ATMOSPHAERE_LW_J
+    #     pict.sun_y_coord = ''  # SONNENZENIT
+    #
+    #     img = Image.open(pict.path_fn)
+    #     fn = make_result_path_fn('resized_3', pict.fn)
+    #     print 'resizing: ', fn,
+    #     img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
+    #     img_resized.save(fn)
+    #     print ' done.'
+
+
 #======================================================================
-# do_make_rename_file = True
-do_make_rename_file = False
+do_make_rename_file      = True
+do_make_rename_file      = False
 
-# do_synthesize_new_images  = True
-do_synthesize_new_images  = False
+do_synthesize_new_images = True
+do_synthesize_new_images = False
 
-# do_calc_average     = True
-do_calc_average     = False
+do_calc_average          = True
+# do_calc_average          = False
 
-# do_connect_with_DWD_data = True
-do_connect_with_DWD_data = Fal= False
+do_connect_with_DWD_data = True
+# do_connect_with_DWD_data = False
+
+do_calc_measurement_coord= True
+# do_calc_measurement_coord= False
 
 do_stitch_images = True
-# do_stitch_images = False
+do_stitch_images = False
 
 if __name__ == '__main__':
     # >list_of_pict< is global
@@ -1002,6 +1081,8 @@ if __name__ == '__main__':
         print "\n\n>" + batch_f_name + "< written. ", cnt_picts_to_rename, "files to rename\n"
         batch_file.close()
 
+    list_of_pict = picts_csv_read()
+
     cnt_jpg_files, cnt_valid_files = make_list_of_picts_via_EXIF()  # *.jpg files in directory
     cnt_valid_picts                = print_valid_picts_in_list()    # picts in list
     cnt_missing_picts              = print_todo_picts_in_list()
@@ -1009,7 +1090,7 @@ if __name__ == '__main__':
 
     print "\n\n"
     '{:4d}'.format(cnt_valid_picts)
-    print ">", '{:4d}'.format(cnt_days), "days    in total"
+    print ">", '{:4d}'.format(cnt_days),           "days    in total"
     print ">", '{:4d}'.format(cnt_jpg_files),      "jpg     files in directory "
     print ">", '{:4d}'.format(cnt_valid_files),    "valid   files in directory "
     print ">", '{:4d}'.format(cnt_valid_picts),    "valid   picts in list "
@@ -1027,7 +1108,7 @@ if __name__ == '__main__':
 
     # test_EXIF_Tag(list_of_pict[0])
 
-    if do_calc_average and cnt_synthd_images:   # if no image changed, no calculation
+    if do_calc_average or cnt_synthd_images:   # if no image changed, no calculation
         calc_average_graylevel()
         picts_csv_write(list_of_pict)
         list_of_pict = picts_csv_read()
@@ -1037,20 +1118,24 @@ if __name__ == '__main__':
 
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
 
-    # max_w, max_h = find_max_width_max_height_of_pict() # => All picts are 4000 x 3000
+    # max_w, max_h = find_max_width_max_height_of_pict() # => All picts are: x_pict_org * y_pict_org
 
     if do_connect_with_DWD_data:
         connect_picts_with_DWD_data()
         picts_csv_write(list_of_pict)
         list_of_pict = picts_csv_read()
 
-    list_of_pict = picts_csv_read()
+
+    if do_calc_measurement_coord:  # if no image changed, no calculation
+        calc_measurement_coord()
+        # picts_csv_write(list_of_pict)
+        # list_of_pict = picts_csv_read()
 
     # reduce_image_resolution()
-
     # 2016-05_04 images resized to 1/4 of original dimensions
 
     if do_stitch_images:
         stitch_images()
+        picts_csv_write(list_of_pict)
 
     print "\n> end"
