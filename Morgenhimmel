@@ -161,37 +161,38 @@ class PictClass(object):
     def __init__(self, param):
         if type (param) == str: # param == datum
             datum = param
-            self.cnt         = '0'
-            self.datum       = datum
-            self.Make        = 'rh'
-            self.Model       = 'ToDo'
-            self.date        = ''
-            self.fn          = datum + '_' + '0900_IMG_rh.JPG'
-            self.fn_old      = '0900_IMG_rh.JPG'         # default
-            self.path_fn     = ''
-            self.sources     = ''
-            self.FNumber_str = ''
-            self.FNumber     = ''
-            self.ExpoTime_str= ''
-            self.ExpoTime    = ''
-            self.ISOSpeed    = ''
-            self.ISOSpeed_str= ''
-            self.av_gray     = '-999.0'
-            self.temperature = ''
-            self.humidity    = ''
-            self.sky_KW_J    = '' #HIMMEL_KW_J
-            self.global_KW_J = '' #GLOBAL_KW_J
-            self.atmo_KW_J   = '' #ATMOSPHAERE_LW_J
-            self.sun_zenit   = '' #SONNENZENIT
-            self.sources = ''
-            self.x_coord     = '' # x_coord in result_image
-            self.y_coord     = '' # y_coord in result_image
-            self.tmp_y_coord = ''
-            self.hum_y_coord = ''
-            self.sky_y_coord = '' #HIMMEL_KW_J
-            self.glb_y_coord = '' #GLOBAL_KW_J
-            self.atm_y_coord = '' #ATMOSPHAERE_LW_J
-            self.sun_y_coord = '' #SONNENZENIT
+            self.cnt          = '0'
+            self.datum        = datum
+            self.Make         = 'rh'
+            self.Model        = 'ToDo'
+            self.date         = ''
+            self.fn           = datum + '_' + '0900_IMG_rh.JPG'
+            self.fn_old       = '0900_IMG_rh.JPG'         # default
+            self.path_fn      = ''
+            self.sources      = ''
+            self.FNumber_str  = ''
+            self.FNumber      = ''
+            self.ExpoTime_str = ''
+            self.ExpoTime     = ''
+            self.ISOSpeed     = ''
+            self.ISOSpeed_str = ''
+            self.av_gray      = '-999.0'
+            self.temperature  = ''
+            self.humidity     = ''
+            self.sky_KW_J     = '' #HIMMEL_KW_J
+            self.global_KW_J  = '' #GLOBAL_KW_J
+            self.atmo_KW_J    = '' #ATMOSPHAERE_LW_J
+            self.sun_zenit    = '' #SONNENZENIT
+            self.sources      = ''
+            self.x_coord      = '' # x_coord in result_image
+            self.y_coord      = '' # y_coord in result_image
+            self.av_gray_x    = ''
+            self.temperature_x= ''
+            self.humidity_x   = ''
+            self.sky_KW_J_x   = '' #HIMMEL_KW_J
+            self.global_KW_J_x= '' #GLOBAL_KW_J
+            self.atmo_KW_J_x  = '' #ATMOSPHAERE_LW_J
+            self.sun_zenit_x  = '' #SONNENZENIT
             # self.xxxxxxx     = ''
             # self.xxxxxxx     = ''
 
@@ -204,7 +205,7 @@ class PictClass(object):
             sys.exit(2)
 
     def __repr__(self):
-        return '%s; '*30 % (
+        return '%s; '*31 % (
         self.cnt          ,
         self.datum        ,
         self.Make         ,
@@ -229,12 +230,13 @@ class PictClass(object):
         self.sun_zenit    ,
         self.x_coord      ,
         self.y_coord      ,
-        self.tmp_y_coord  ,
-        self.hum_y_coord  ,
-        self.sky_y_coord  ,
-        self.glb_y_coord  ,
-        self.atm_y_coord  ,
-        self.sun_y_coord
+        self.av_gray_x    ,
+        self.temperature_x,
+        self.humidity_x   ,
+        self.sky_KW_J_x   ,
+        self.global_KW_J_x,
+        self.atmo_KW_J_x  ,
+        self.sun_zenit_x
         )
 
     fieldnames = [ "cnt",                 # used in: >picts_csv_write()< writing dict
@@ -248,7 +250,7 @@ class PictClass(object):
         "temperature", "humidity",
         "sky_KW_J", "global_KW_J", "atmo_KW_J", "sun_zenit",
         "x_coord", "y_coord",
-        "tmp_y_coord", "hum_y_coord", "sky_y_coord", "glb_y_coord", "atm_y_coord", "sun_y_coord"
+        "av_gray_x", "temperature_x", "humidity_x", "sky_KW_J_x", "global_KW_J_x", "atmo_KW_J_x", "sun_zenit_x"
         ]
 
 
@@ -491,6 +493,13 @@ def picts_csv_write(list_of_pict):
     list_of_pict.sort(key = attrgetter('datum'))
     pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
     fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
+
+    for pict in list_of_pict:                     # changing data elements of picts after reading
+        for key in pict.__dict__.keys():          # there may be datalements that not exist in fieldnames
+            if key not in fieldnames:             # delete (== pop) any key in pict.__dict__, that is not in fieldnames
+                pict.__dict__.pop(key, None)      # remember that >pict.__dict__< turns pict into dictionary!
+        #'glb_y_coord', 'sun_y_coord', 'hum_y_coord', 'sky_y_coord', 'tmp_y_coord', 'atm_y_coord'
+
     with open(fn, 'wb') as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames)
         writer.writeheader()                          # Header = >fieldnames<
@@ -824,7 +833,7 @@ def calc_average_graylevel():
         print "\r  ", cnt, ': image # ', pict.fn, ' gray level = ',
         image = Image.open(pict.path_fn).convert('L')
         im_np_array  = np.array(image)
-        pict.av_gray = np.average(im_np_array)
+        pict.av_gray = "{:.2f}".format(np.average(im_np_array))  # "{:.9f}".format(numvar)
         print pict.av_gray
 
 def find_max_width_max_height_of_pict():
@@ -999,59 +1008,89 @@ def stitch_images():
 
 
 def calc_measurement_coord():
+    # task: in every single picture just show graphically for certain interesting parameters (temperature, humidity, av_gray ...)
+    # the value as points. THe height is indicating the normalized values.
+    # So: for every parameter
+    #     find the range (i.e. min, max)
+    #     calculate correspondig datapoint.
+    # a little bit tricky:
+    # we dynamically create dictionarys with
+    #   keys corresponding to the fieldnames (i.e. : 'av_gray', 'temperature', 'humidity', ...)  and
+    #   vals corresponding to lists containing the values of this field of all the pics (i.e. 'av_gray': [a1, a2, .. an]
+    # We identify the corresponding min and max for every parameter; 
+    #
+    # Now we want to calculate the corresponding data point of every single specific value:
+    # lowest val  == lower border of pictuere + something ; 
+    # highest val == higher border of pictuere - something ;
+    # Remember to scale according to the picture dimensions and the cale factor.
+    #
+
     list_of_pict.sort(key=attrgetter('datum'))
     pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
     # fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
     fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit',
-                  'x_coord', 'y_coord',
-                  'tmp_y_coord', 'hum_y_coord', 'sky_y_coord', 'glb_y_coord', 'atm_y_coord', 'sun_y_coord']
+                  'av_gray_x', 'temperature_x', 'humidity_x', 'sky_KW_J_x', 'global_KW_J_x', 'atmo_KW_J_x', 'sun_zenit_x']
+    # 'x_coord', 'y_coord',
 
-    print fieldnames
+    # initialize dicts:
     dict_values = {}
     dict_min = {}
     dict_max = {}
 
+    # initialize lists in dicts (these lists are the vals of the dicts, i.e. key:[]):
     for fieldname in fieldnames:
         dict_values[fieldname] = []  # dict with k:v == fieldname:[pict[0].fieldname, pict[1].fieldname, ...]
         dict_min[fieldname]    = []  # dict with k:v == fieldname:[min (pict[0..n)].fieldname)]
         dict_max[fieldname]    = []  # dict with k:v == fieldname:[max (pict[0..n)].fieldname)]
 
+    # for every element in dict_values, 'field_name':list, fill the list with pct.field_name[0 ... n]:
+    for pict in list_of_pict:
+        for fieldname in fieldnames:
+            # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
+            strg = getattr(pict, fieldname)
+            if strg:
+                dict_values[fieldname].append(float(strg))  # pict.fieldname
+
+    # for fieldname in fieldnames:
+    #     # pprint.pprint (dict_values[fieldname])  # pict.fieldname
+    #     # dict_values[fieldname].sort()  # pict.fieldname
+    #     print fieldname, sorted(dict_values[fieldname])  # pict.fieldname
+
+    # find (and store) min max in every list:
+    print
+    for fieldname in fieldnames:  # 
+        if dict_values[fieldname]:
+            dict_min[fieldname].append(min (dict_values[fieldname]))  # pict.fieldname min
+            dict_max[fieldname].append(max (dict_values[fieldname]))  # pict.fieldname max
+            print fieldname, dict_min[fieldname][0], dict_max[fieldname][0]
+
+    # Now the data points and the scaling stuff:
+    #
+    x_edge_low,  y_edge_low  = x_pict // 10 , y_pict // 10
+    x_edge_high, y_edge_high = x_pict // 10 , y_pict - y_pict // 10
+
+    test_min_max = []
 
     for pict in list_of_pict:
         for fieldname in fieldnames:
-            dict_values[fieldname].append(getattr(pict, fieldname))  # pict.fieldname
-
-    for fieldname in fieldnames:
-        # dict_min[fieldname].append (min (dict_values[fieldname]))  # pict.fieldname
-        # dict_max[fieldname].append (max (dict_values[fieldname]))  # pict.fieldname
-        dict_min[fieldname] = (min (dict_values[fieldname]))  # pict.fieldname
-        dict_max[fieldname] = (max (dict_values[fieldname]))  # pict.fieldname
-        print fieldname, dict_min[fieldname], dict_max[fieldname]
-
-    #     # x_pict = x_pict_org // scale_factor  # pixels on x-axis of single pict
-    #     # y_pict = y_pict_org // scale_factor  # pixels on y-axis of single pict
-    #     pict.temperature = ''
-    #     pict.humidity    = ''
-    #     pict.sky_KW_J    = ''  # HIMMEL_KW_J
-    #     pict.global_KW_J = ''  # GLOBAL_KW_J
-    #     pict.atmo_KW_J   = ''  # ATMOSPHAERE_LW_J
-    #     pict.sun_zenit   = ''  # SONNENZENIT
-    #     pict.tmp_y_coord = ''
-    #     pict.hum_y_coord = ''
-    #     pict.sky_y_coord = ''  # HIMMEL_KW_J
-    #     pict.glb_y_coord = ''  # GLOBAL_KW_J
-    #     pict.atm_y_coord = ''  # ATMOSPHAERE_LW_J
-    #     pict.sun_y_coord = ''  # SONNENZENIT
-    #
-    #     img = Image.open(pict.path_fn)
-    #     fn = make_result_path_fn('resized_3', pict.fn)
-    #     print 'resizing: ', fn,
-    #     img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
-    #     img_resized.save(fn)
-    #     print ' done.'
+            # if dict_values[fieldname]:
+            if getattr(pict, fieldname):
+                # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
+                val_min = float (dict_min[fieldname][0])
+                val_max = float (dict_max[fieldname][0])
+                val_pict= float (getattr(pict, fieldname))
+                img_y   = int ((y_pict * (val_pict - val_min) * 0.8) // (val_max - val_min))
+                print pict.datum, fieldname, ':', getattr(pict, fieldname), dict_min[fieldname][0], dict_max[fieldname][0],
+                print ':', val_min - val_min, val_pict - val_min, val_max - val_min, ':',
+                print ':', val_min - val_min, val_pict - val_min, val_max - val_min, ':', img_y
+                setattr(pict, fieldname, img_y)
+                test_min_max.append(img_y)
+        print
+    print min(test_min_max), max(test_min_max)
 
 
-#======================================================================
+
+        #======================================================================
 do_make_rename_file      = True
 do_make_rename_file      = False
 
@@ -1062,7 +1101,7 @@ do_calc_average          = True
 do_calc_average          = False
 
 do_connect_with_DWD_data = True
-# do_connect_with_DWD_data = False
+do_connect_with_DWD_data = False
 
 do_calc_measurement_coord= True
 # do_calc_measurement_coord= False
@@ -1140,5 +1179,7 @@ if __name__ == '__main__':
     if do_stitch_images:
         stitch_images()
         picts_csv_write(list_of_pict)
+
+    picts_csv_write(list_of_pict)
 
     print "\n> end"
