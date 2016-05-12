@@ -35,12 +35,15 @@ import csv
 import datetime
 import exifread       # EXIF write python 2.7xx
 import getopt
+import io
+import matplotlib.pyplot as plt
 import os
-import pprint
 import piexif         # EXIF write python 2.7xx
+import pprint
 import random
 import re
 import sys
+import tempfile
 from operator import itemgetter, attrgetter, methodcaller
 from fractions import Fraction
 
@@ -186,13 +189,13 @@ class PictClass(object):
             self.sources      = ''
             self.x_coord      = '' # x_coord in result_image
             self.y_coord      = '' # y_coord in result_image
-            self.av_gray_x    = ''
-            self.temperature_x= ''
-            self.humidity_x   = ''
-            self.sky_KW_J_x   = '' #HIMMEL_KW_J
-            self.global_KW_J_x= '' #GLOBAL_KW_J
-            self.atmo_KW_J_x  = '' #ATMOSPHAERE_LW_J
-            self.sun_zenit_x  = '' #SONNENZENIT
+            self.av_gray_y    = ''
+            self.temperature_y= ''
+            self.humidity_y   = ''
+            self.sky_KW_J_y   = '' #HIMMEL_KW_J
+            self.global_KW_J_y= '' #GLOBAL_KW_J
+            self.atmo_KW_J_y  = '' #ATMOSPHAERE_LW_J
+            self.sun_zenit_y  = '' #SONNENZENIT
             # self.xxxxxxx     = ''
             # self.xxxxxxx     = ''
 
@@ -230,13 +233,13 @@ class PictClass(object):
         self.sun_zenit    ,
         self.x_coord      ,
         self.y_coord      ,
-        self.av_gray_x    ,
-        self.temperature_x,
-        self.humidity_x   ,
-        self.sky_KW_J_x   ,
-        self.global_KW_J_x,
-        self.atmo_KW_J_x  ,
-        self.sun_zenit_x
+        self.av_gray_y    ,
+        self.temperature_y,
+        self.humidity_y   ,
+        self.sky_KW_J_y   ,
+        self.global_KW_J_y,
+        self.atmo_KW_J_y  ,
+        self.sun_zenit_y
         )
 
     fieldnames = [ "cnt",                 # used in: >picts_csv_write()< writing dict
@@ -250,7 +253,7 @@ class PictClass(object):
         "temperature", "humidity",
         "sky_KW_J", "global_KW_J", "atmo_KW_J", "sun_zenit",
         "x_coord", "y_coord",
-        "av_gray_x", "temperature_x", "humidity_x", "sky_KW_J_x", "global_KW_J_x", "atmo_KW_J_x", "sun_zenit_x"
+        "av_gray_y", "temperature_y", "humidity_y", "sky_KW_J_y", "global_KW_J_y", "atmo_KW_J_y", "sun_zenit_y"
         ]
 
 
@@ -950,6 +953,9 @@ def stitch_images():
     # http://stackoverflow.com/questions/10647311/how-do-you-merge-images-using-pil-pillow
     # https://www.youtube.com/watch?v=ZTjiDStstmc # image processing beyond PIL
     # https://www.youtube.com/watch?v=Wvvxazwi2IY # Image Processing in Python with Scikits-image
+    #
+    # http://stackoverflow.com/questions/18550127/virtual-file-processing-in-python
+    #
     global res_image
     global res_curves
     global res_figures
@@ -979,7 +985,7 @@ def stitch_images():
 
     # res_image.save(fn, optimize=True, quality=50)
     # return
-
+    cnt = 0
     list_of_pict.sort(key=attrgetter('datum'))
     pict_iter = iter(list_of_pict)
     y_idx = border
@@ -990,6 +996,14 @@ def stitch_images():
             x_idx = x_idx + border
             pict = pict_iter.next()
             img  = Image.open(pict.path_fn)
+            temp_img = tempfile.TemporaryFile()
+            # result.save(temp_img)
+
+
+
+            #img  = plt.imread(pict.path_fn)
+            # implot  = plt.imshow(im)
+
             print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx) + ':' + str(y_idx) + ' | ' ,
             pict.x_coord = str(x_idx) # x_coord in result_image
             pict.y_coord = str(y_idx) # y_coord in result_image
@@ -998,6 +1012,13 @@ def stitch_images():
 
         y_idx = y_idx + y_pict
         print
+        cnt += 1
+        if cnt > 5:
+            break
+
+    # http://stackoverflow.com/questions/5073386/how-do-you-directly-overlay-a-scatter-plot-on-top-of-a-jpg-image-in-matplotlib
+
+
 
     # res_image.show(fn)
     print '\n', fn, '\n'
@@ -1028,8 +1049,8 @@ def calc_measurement_coord():
     list_of_pict.sort(key=attrgetter('datum'))
     pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
     # fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
-    fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit',
-                  'av_gray_x', 'temperature_x', 'humidity_x', 'sky_KW_J_x', 'global_KW_J_x', 'atmo_KW_J_x', 'sun_zenit_x']
+    fieldnames = ['av_gray',   'temperature',   'humidity',   'sky_KW_J',   'global_KW_J',   'atmo_KW_J',   'sun_zenit']
+               #  'av_gray_y', 'temperature_y', 'humidity_y', 'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
     # 'x_coord', 'y_coord',
 
     # initialize dicts:
@@ -1075,22 +1096,22 @@ def calc_measurement_coord():
         for fieldname in fieldnames:
             # if dict_values[fieldname]:
             if getattr(pict, fieldname):
+                print pict.datum, fieldname,
                 # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
                 val_min = float (dict_min[fieldname][0])
                 val_max = float (dict_max[fieldname][0])
                 val_pict= float (getattr(pict, fieldname))
                 img_y   = int ((y_pict * (val_pict - val_min) * 0.8) // (val_max - val_min))
-                print pict.datum, fieldname, ':', getattr(pict, fieldname), dict_min[fieldname][0], dict_max[fieldname][0],
-                print ':', val_min - val_min, val_pict - val_min, val_max - val_min, ':',
+                print ':', getattr(pict, fieldname), dict_min[fieldname][0], dict_max[fieldname][0],
                 print ':', val_min - val_min, val_pict - val_min, val_max - val_min, ':', img_y
-                setattr(pict, fieldname, img_y)
+                setattr(pict, fieldname + '_y', img_y)
                 test_min_max.append(img_y)
         print
-    print min(test_min_max), max(test_min_max)
+    # print min(test_min_max), max(test_min_max)
 
 
+    #======================================================================
 
-        #======================================================================
 do_make_rename_file      = True
 do_make_rename_file      = False
 
@@ -1107,7 +1128,7 @@ do_calc_measurement_coord= True
 # do_calc_measurement_coord= False
 
 do_stitch_images = True
-do_stitch_images = False
+# do_stitch_images = False
 
 if __name__ == '__main__':
     # >list_of_pict< is global
