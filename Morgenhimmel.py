@@ -37,11 +37,13 @@ import exifread       # EXIF write python 2.7xx
 import getopt
 import io
 import matplotlib.pyplot as plt
+import numpy
 import os
 import piexif         # EXIF write python 2.7xx
 import pprint
 import random
 import re
+import scipy
 import sys
 import tempfile
 from operator import itemgetter, attrgetter, methodcaller
@@ -949,6 +951,15 @@ def reduce_image_resolution():
         print ' done.'
 
 
+def plotting_01():
+    # Pixelorientierte Graphik:
+    # http://stackoverflow.com/questions/13714454/specifying-and-saving-a-figure-with-exact-size-in-pixels
+    # Rand um Bild herum entfernen
+    # http://stackoverflow.com/questions/8775622/exact-figure-size-in-matplotlib-with-title-axis-labels
+    # Transparenter Hintergrund:
+    # http://stackoverflow.com/questions/4581504/how-to-set-opacity-of-background-colour-of-graph-wit-matplotlib
+    pass
+
 def stitch_images():
     # http://stackoverflow.com/questions/10647311/how-do-you-merge-images-using-pil-pillow
     # https://www.youtube.com/watch?v=ZTjiDStstmc # image processing beyond PIL
@@ -989,20 +1000,42 @@ def stitch_images():
     list_of_pict.sort(key=attrgetter('datum'))
     pict_iter = iter(list_of_pict)
     y_idx = border
+
+    print 'cwd = ', os.getcwd()
+
     for y_cnt in range (0, y_max):
         y_idx = y_idx + border
         x_idx = border
         for x_cnt in range(0, x_max):
             x_idx = x_idx + border
             pict = pict_iter.next()
-            img  = Image.open(pict.path_fn)
-            temp_img = tempfile.TemporaryFile()
-            # result.save(temp_img)
 
+            # plot vals:
+            fig = plt.figure()
+            axplot = fig.add_axes([0.07, 0.25, 0.90, 0.70])
+            axplot.plot(scipy.randn(100))
+            numicons = 8
+            for k in range(numicons):
+                axicon = fig.add_axes([0.07 + 0.11 * k, 0.05, 0.1, 0.1])
+                axicon.imshow(scipy.rand(4, 4), interpolation='nearest')
+                axicon.set_xticks([])
+                axicon.set_yticks([])
+            fig.show()
+            # fig.savefig('iconsbelow.png')
 
+            # plot values:
 
-            #img  = plt.imread(pict.path_fn)
-            # implot  = plt.imshow(im)
+            # img = plt.imread(pict.path_fn)
+            # implot = plt.imshow(img)
+            # # plt.scatter([10], [20])
+            # # put a red dot, size 40, at 2 locations:
+            # plt.scatter(x=[30, 40], y=[50, 60], c='r', s=40)
+            # plt.show()
+            # plt.savefig('tmp.jpg', bbox_inches='tight')
+            # wie bisher:
+            # img  = Image.open(pict.path_fn)
+            img  = Image.open('tmp.jpg')
+
 
             print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx) + ':' + str(y_idx) + ' | ' ,
             pict.x_coord = str(x_idx) # x_coord in result_image
@@ -1013,7 +1046,7 @@ def stitch_images():
         y_idx = y_idx + y_pict
         print
         cnt += 1
-        if cnt > 5:
+        if cnt > 1:
             break
 
     # http://stackoverflow.com/questions/5073386/how-do-you-directly-overlay-a-scatter-plot-on-top-of-a-jpg-image-in-matplotlib
