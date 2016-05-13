@@ -958,6 +958,17 @@ def plotting_01():
     # http://stackoverflow.com/questions/8775622/exact-figure-size-in-matplotlib-with-title-axis-labels
     # Transparenter Hintergrund:
     # http://stackoverflow.com/questions/4581504/how-to-set-opacity-of-background-colour-of-graph-wit-matplotlib
+    # In Bild plotten
+    # http://stackoverflow.com/questions/15160123/adding-a-background-image-to-a-plot-with-known-corner-coordinates
+    #
+    # Mit anderen Worten: matplotlib ist bildschirmorientiert, es macht Graphiken, die am Bildschirm ausgegeben
+    # werden sollen. ABER: ich will ja in bestehende Bilder die Graphiken hineinzeichnen.
+    # Auswega:
+    # a) man kann die Bildgröße der matplotlib Graphken über den dpi Parameter in etwa so regulieren,
+    # dass man pixelorientioertes Zeichnen simuliert.
+    #    ABER geht das aucuh mitmgroßen Bildern? Ist es genau genug??
+    # b) andere LIbrary?
+    #
     pass
 
 def stitch_images():
