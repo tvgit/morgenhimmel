@@ -44,6 +44,7 @@ import pprint
 import random
 import re
 import scipy
+import svgwrite
 import sys
 import tempfile
 from operator import itemgetter, attrgetter, methodcaller
@@ -951,7 +952,7 @@ def reduce_image_resolution():
         print ' done.'
 
 
-def plotting_01():
+def plot_data_points_via_svg():
     # Pixelorientierte Graphik:
     # http://stackoverflow.com/questions/13714454/specifying-and-saving-a-figure-with-exact-size-in-pixels
     # Rand um Bild herum entfernen
@@ -960,6 +961,8 @@ def plotting_01():
     # http://stackoverflow.com/questions/4581504/how-to-set-opacity-of-background-colour-of-graph-wit-matplotlib
     # In Bild plotten
     # http://stackoverflow.com/questions/15160123/adding-a-background-image-to-a-plot-with-known-corner-coordinates
+    # http://stackoverflow.com/questions/5073386/how-do-you-directly-overlay-a-scatter-plot-on-top-of-a-jpg-image-in-matplotlib
+    #
     #
     # Mit anderen Worten: matplotlib ist bildschirmorientiert, es macht Graphiken, die am Bildschirm ausgegeben
     # werden sollen. ABER: ich will ja in bestehende Bilder die Graphiken hineinzeichnen.
@@ -967,9 +970,38 @@ def plotting_01():
     # a) man kann die Bildgröße der matplotlib Graphken über den dpi Parameter in etwa so regulieren,
     # dass man pixelorientioertes Zeichnen simuliert.
     #    ABER geht das aucuh mitmgroßen Bildern? Ist es genau genug??
-    # b) andere LIbrary?
+    # b) andere Library?  => try svg
     #
-    pass
+    svg_size_width  = x_img_dim
+    svg_size_height = y_img_dim
+
+    path_fn = make_result_path_fn('results', act_date_time_str() + 'img_data_points.svg')   # fn von data points file
+    dwg     = svgwrite.Drawing(path_fn, (svg_size_width, svg_size_height), profile='tiny', debug=True)
+
+    fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
+    colors     = ["#99FFCC", "#CCCC99", "#CCCCCC", "#CCCCFF", "#CCFF99", "#CCFFCC", "#CCFFFF", "#FFCC99", "#FFCCCC", "#FFCCFF", "#FFFF99", "#FFFFCC" ]
+    field_color_dict = dict(zip(fieldnames, colors))
+    # pprint.pprint(field_color_dict)
+
+    x_delta = x_pict  // 10
+    radius  = x_delta // 10
+    for pict in list_of_pict:
+        if (pict.x_coord and pict.y_coord):
+            for fieldname in fieldnames:
+                # if dict_values[fieldname]:
+                if getattr(pict, fieldname):
+                    val = getattr(pict, fieldname + '_y')
+                    x_circle = int (pict.x_coord) + x_delta
+                    y_circle = int(pict.y_coord) + int(val)
+                    print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
+                    print val, x_circle, y_circle
+
+                    fill = field_color_dict[fieldname]
+                    # dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill='purple', opacity='0.5'))
+                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill=fill, opacity='1.0'))
+            print
+    dwg.save()
+
 
 def stitch_images():
     # http://stackoverflow.com/questions/10647311/how-do-you-merge-images-using-pil-pillow
@@ -988,16 +1020,10 @@ def stitch_images():
 
     x_max = x_cnt_pct # global
     y_max = y_cnt_pct # global
-    print '\n'
-    print "x_img_dim =" , x_img_dim,
-    print "y_img_dim =" , y_img_dim,
+    print "\nx_img_dim =" , x_img_dim, "y_img_dim =" , y_img_dim,
     print "(x_img_dim * y_img_dim (MB)) =" , x_img_dim * y_img_dim // 1000000
-    print "x_pict =" , x_pict,
-    print "y_pict =" , y_pict,
-    print "border =" , border
-    print "x_max =" , x_max,
-    print "y_max =" , y_max,
-    print '\n'
+    print "x_pict =" , x_pict, "y_pict =" , y_pict, "border =" , border
+    print "x_max =" , x_max, "y_max =" , y_max, '\n'
 
     fn = make_result_path_fn('results', act_date_time_str() + 'img_result.jpg')   # fn von image file
     # fn = make_result_path_fn('results', act_date_time_str() + 'img_result.png')   # fn von image file
@@ -1005,8 +1031,6 @@ def stitch_images():
 
     res_image = Image.new('RGB', (x_img_dim, y_img_dim), (100, 100, 25, 0))
 
-    # res_image.save(fn, optimize=True, quality=50)
-    # return
     cnt = 0
     list_of_pict.sort(key=attrgetter('datum'))
     pict_iter = iter(list_of_pict)
@@ -1019,60 +1043,28 @@ def stitch_images():
         x_idx = border
         for x_cnt in range(0, x_max):
             x_idx = x_idx + border
-            pict = pict_iter.next()
-
-            # plot vals:
-            fig = plt.figure()
-            axplot = fig.add_axes([0.07, 0.25, 0.90, 0.70])
-            axplot.plot(scipy.randn(100))
-            numicons = 8
-            for k in range(numicons):
-                axicon = fig.add_axes([0.07 + 0.11 * k, 0.05, 0.1, 0.1])
-                axicon.imshow(scipy.rand(4, 4), interpolation='nearest')
-                axicon.set_xticks([])
-                axicon.set_yticks([])
-            fig.show()
-            # fig.savefig('iconsbelow.png')
-
-            # plot values:
-
-            # img = plt.imread(pict.path_fn)
-            # implot = plt.imshow(img)
-            # # plt.scatter([10], [20])
-            # # put a red dot, size 40, at 2 locations:
-            # plt.scatter(x=[30, 40], y=[50, 60], c='r', s=40)
-            # plt.show()
-            # plt.savefig('tmp.jpg', bbox_inches='tight')
-            # wie bisher:
-            # img  = Image.open(pict.path_fn)
-            img  = Image.open('tmp.jpg')
-
-
-            print str(x_cnt) + ':' + str(y_cnt) + ' ' + str(x_idx) + ':' + str(y_idx) + ' | ' ,
+            pict = pict_iter.next()   # "%05d" % i  "%03d" % i
+            if not quiet:
+                print  "%2d" % x_cnt + ':' + "%2d" % y_cnt + ' ' + "%5d" % x_idx + ':' + "%5d" % y_idx + ' | ' ,
             pict.x_coord = str(x_idx) # x_coord in result_image
             pict.y_coord = str(y_idx) # y_coord in result_image
+            img = Image.open(pict.path_fn)
             res_image.paste(img, (x_idx, y_idx))
             x_idx = x_idx + x_pict
-
         y_idx = y_idx + y_pict
-        print
-        cnt += 1
-        if cnt > 1:
-            break
-
-    # http://stackoverflow.com/questions/5073386/how-do-you-directly-overlay-a-scatter-plot-on-top-of-a-jpg-image-in-matplotlib
-
-
+        if not quiet: print
+        # cnt += 1
+        # if cnt > 1:
+        #     break
 
     # res_image.show(fn)
-    print '\n', fn, '\n'
-    print '\n Dimensions x * y:', x_idx, '*', y_idx, '\n\n'
+    print '\nPrinting: ', fn, '\n'
+    print ' Dimensions (x * y):', x_idx, '*', y_idx
     res_image.save(fn, optimize=True, quality=50)
     # res_image.save(fn, optimize=True, quality=95)
-    # print_all_picts_in_list():
 
 
-def calc_measurement_coord():
+def calc_data_point_coord():
     # task: in every single picture just show graphically for certain interesting parameters (temperature, humidity, av_gray ...)
     # the value as points. THe height is indicating the normalized values.
     # So: for every parameter
@@ -1091,11 +1083,8 @@ def calc_measurement_coord():
     #
 
     list_of_pict.sort(key=attrgetter('datum'))
-    pict = list_of_pict[0]                            # erstes Element von >list_of_pict<
-    # fieldnames = pict.fieldnames                      # >fieldnames< from definition of PictClass
     fieldnames = ['av_gray',   'temperature',   'humidity',   'sky_KW_J',   'global_KW_J',   'atmo_KW_J',   'sun_zenit']
                #  'av_gray_y', 'temperature_y', 'humidity_y', 'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
-    # 'x_coord', 'y_coord',
 
     # initialize dicts:
     dict_values = {}
@@ -1156,23 +1145,15 @@ def calc_measurement_coord():
 
     #======================================================================
 
-do_make_rename_file      = True
 do_make_rename_file      = False
-
-do_synthesize_new_images = True
 do_synthesize_new_images = False
-
-do_calc_average          = True
 do_calc_average          = False
-
-do_connect_with_DWD_data = True
 do_connect_with_DWD_data = False
+do_calc_measurement_coord= False
+do_stitch_images         = False
 
-do_calc_measurement_coord= True
-# do_calc_measurement_coord= False
-
-do_stitch_images = True
-# do_stitch_images = False
+do_plot_data_points      = True
+# do_plot_data_points = False
 
 if __name__ == '__main__':
     # >list_of_pict< is global
@@ -1234,7 +1215,7 @@ if __name__ == '__main__':
 
 
     if do_calc_measurement_coord:  # if no image changed, no calculation
-        calc_measurement_coord()
+        calc_data_point_coord()
         # picts_csv_write(list_of_pict)
         # list_of_pict = picts_csv_read()
 
@@ -1244,6 +1225,10 @@ if __name__ == '__main__':
     if do_stitch_images:
         stitch_images()
         picts_csv_write(list_of_pict)
+
+    if do_plot_data_points:
+        plot_data_points_via_svg()
+        pass
 
     picts_csv_write(list_of_pict)
 
