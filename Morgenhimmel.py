@@ -952,57 +952,6 @@ def reduce_image_resolution():
         print ' done.'
 
 
-def plot_data_points_via_svg():
-    # Pixelorientierte Graphik:
-    # http://stackoverflow.com/questions/13714454/specifying-and-saving-a-figure-with-exact-size-in-pixels
-    # Rand um Bild herum entfernen
-    # http://stackoverflow.com/questions/8775622/exact-figure-size-in-matplotlib-with-title-axis-labels
-    # Transparenter Hintergrund:
-    # http://stackoverflow.com/questions/4581504/how-to-set-opacity-of-background-colour-of-graph-wit-matplotlib
-    # In Bild plotten
-    # http://stackoverflow.com/questions/15160123/adding-a-background-image-to-a-plot-with-known-corner-coordinates
-    # http://stackoverflow.com/questions/5073386/how-do-you-directly-overlay-a-scatter-plot-on-top-of-a-jpg-image-in-matplotlib
-    #
-    #
-    # Mit anderen Worten: matplotlib ist bildschirmorientiert, es macht Graphiken, die am Bildschirm ausgegeben
-    # werden sollen. ABER: ich will ja in bestehende Bilder die Graphiken hineinzeichnen.
-    # Auswega:
-    # a) man kann die Bildgröße der matplotlib Graphken über den dpi Parameter in etwa so regulieren,
-    # dass man pixelorientioertes Zeichnen simuliert.
-    #    ABER geht das aucuh mitmgroßen Bildern? Ist es genau genug??
-    # b) andere Library?  => try svg
-    #
-    svg_size_width  = x_img_dim
-    svg_size_height = y_img_dim
-
-    path_fn = make_result_path_fn('results', act_date_time_str() + 'img_data_points.svg')   # fn von data points file
-    dwg     = svgwrite.Drawing(path_fn, (svg_size_width, svg_size_height), profile='tiny', debug=True)
-
-    fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
-    colors     = ["#99FFCC", "#CCCC99", "#CCCCCC", "#CCCCFF", "#CCFF99", "#CCFFCC", "#CCFFFF", "#FFCC99", "#FFCCCC", "#FFCCFF", "#FFFF99", "#FFFFCC" ]
-    field_color_dict = dict(zip(fieldnames, colors))
-    # pprint.pprint(field_color_dict)
-
-    x_delta = x_pict  // 10
-    radius  = x_delta // 10
-    for pict in list_of_pict:
-        if (pict.x_coord and pict.y_coord):
-            for fieldname in fieldnames:
-                # if dict_values[fieldname]:
-                if getattr(pict, fieldname):
-                    val = getattr(pict, fieldname + '_y')
-                    x_circle = int (pict.x_coord) + x_delta
-                    y_circle = int(pict.y_coord) + int(val)
-                    print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
-                    print val, x_circle, y_circle
-
-                    fill = field_color_dict[fieldname]
-                    # dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill='purple', opacity='0.5'))
-                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill=fill, opacity='1.0'))
-            print
-    dwg.save()
-
-
 def stitch_images():
     # http://stackoverflow.com/questions/10647311/how-do-you-merge-images-using-pil-pillow
     # https://www.youtube.com/watch?v=ZTjiDStstmc # image processing beyond PIL
@@ -1074,10 +1023,10 @@ def calc_data_point_coord():
     # we dynamically create dictionarys with
     #   keys corresponding to the fieldnames (i.e. : 'av_gray', 'temperature', 'humidity', ...)  and
     #   vals corresponding to lists containing the values of this field of all the pics (i.e. 'av_gray': [a1, a2, .. an]
-    # We identify the corresponding min and max for every parameter; 
+    # We identify the corresponding min and max for every parameter;
     #
     # Now we want to calculate the corresponding data point of every single specific value:
-    # lowest val  == lower border of pictuere + something ; 
+    # lowest val  == lower border of pictuere + something ;
     # highest val == higher border of pictuere - something ;
     # Remember to scale according to the picture dimensions and the cale factor.
     #
@@ -1112,10 +1061,10 @@ def calc_data_point_coord():
 
     # find (and store) min max in every list:
     print
-    for fieldname in fieldnames:  # 
+    for fieldname in fieldnames:  #
         if dict_values[fieldname]:
-            dict_min[fieldname].append(min (dict_values[fieldname]))  # pict.fieldname min
-            dict_max[fieldname].append(max (dict_values[fieldname]))  # pict.fieldname max
+            dict_min[fieldname].append(min (dict_values[fieldname]))           # pict.fieldname min
+            dict_max[fieldname].append(max (dict_values[fieldname]))           # pict.fieldname max
             print fieldname, dict_min[fieldname][0], dict_max[fieldname][0]
 
     # Now the data points and the scaling stuff:
@@ -1136,22 +1085,87 @@ def calc_data_point_coord():
                 val_pict= float (getattr(pict, fieldname))
                 img_y   = int ((y_pict * (val_pict - val_min) * 0.8) // (val_max - val_min))
                 print ':', getattr(pict, fieldname), dict_min[fieldname][0], dict_max[fieldname][0],
-                print ':', val_min - val_min, val_pict - val_min, val_max - val_min, ':', img_y
-                setattr(pict, fieldname + '_y', img_y)
+                print ':', val_min - val_min, val_pict - val_min, val_max - val_min, ':', img_y, '  ', y_edge_high
+                setattr(pict, fieldname + '_y', img_y)      #
                 test_min_max.append(img_y)
         print
     # print min(test_min_max), max(test_min_max)
 
 
-    #======================================================================
+def plot_data_points_via_svg():
+    # Pixelorientierte Graphik:
+    # http://stackoverflow.com/questions/13714454/specifying-and-saving-a-figure-with-exact-size-in-pixels
+    # Rand um Bild herum entfernen
+    # http://stackoverflow.com/questions/8775622/exact-figure-size-in-matplotlib-with-title-axis-labels
+    # Transparenter Hintergrund:
+    # http://stackoverflow.com/questions/4581504/how-to-set-opacity-of-background-colour-of-graph-wit-matplotlib
+    # In Bild plotten
+    # http://stackoverflow.com/questions/15160123/adding-a-background-image-to-a-plot-with-known-corner-coordinates
+    # http://stackoverflow.com/questions/5073386/how-do-you-directly-overlay-a-scatter-plot-on-top-of-a-jpg-image-in-matplotlib
+    #
+    #
+    # Mit anderen Worten: matplotlib ist bildschirmorientiert, es macht Graphiken, die am Bildschirm ausgegeben
+    # werden sollen. ABER: ich will ja in bestehende Bilder die Graphiken hineinzeichnen.
+    # Auswega:
+    # a) man kann die Bildgröße der matplotlib Graphken über den dpi Parameter in etwa so regulieren,
+    # dass man pixelorientioertes Zeichnen simuliert.
+    #    ABER geht das aucuh mitmgroßen Bildern? Ist es genau genug??
+    # b) andere Library?  => try svg
+    #
+    svg_dimensions = x_img_dim, y_img_dim
+
+    path_fn = make_result_path_fn('results', act_date_time_str() + 'img_data_points.svg')  # fn von data points file
+    dwg = svgwrite.Drawing(path_fn, (svg_dimensions), profile='tiny', debug=True)
+    # Forcing svgwrite to set dimensions to svg_size_width x svg_size_height:
+    dwg.add(dwg.circle(center=(1, 1), r=1, stroke='none', fill='black', opacity='1.0'))
+    dwg.add(dwg.circle(center=svg_dimensions, r=1, stroke='none', fill='black', opacity='1.0'))
+
+    fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
+    # colors     = ["#99FFCC", "#CCCC99", "#CCCCCC", "#CCCCFF", "#CCFF99", "#CCFFCC", "#CCFFFF", "#FFCC99",
+    #               "#FFCCCC", "#FFCCFF", "#FFFF99", "#FFFFCC" ]
+    colors = ["aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive",
+              "purple", "red", "silver", "teal", "white", "yellow"]
+    field_color_dict = dict(zip(fieldnames, colors))
+    # pprint.pprint(field_color_dict)
+
+    x_delta = x_pict // 10
+    radius = x_delta // 10
+    for pict in list_of_pict:
+        if (pict.x_coord and pict.y_coord):
+            for fieldname in fieldnames:  # for each category (temperature, humidity ...)
+                # if dict_values[fieldname]:
+                if getattr(pict, fieldname):  # is there a value in this
+                    val = getattr(pict, fieldname + '_y')  # get the value as string
+                    x_circle = int(pict.x_coord) + x_delta  # x-coordinate in result image
+                    y_circle = int(pict.y_coord) + int(val)  # y-coordinate according value
+                    if not quiet: pass
+                    # print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
+                    # print val, x_circle, y_circle
+
+                    fill = field_color_dict[fieldname]
+                    # dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill='purple', opacity='0.5'))
+                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 4, stroke='none', fill='black',
+                                       opacity='1.0'))
+                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 2, stroke='none', fill='white',
+                                       opacity='1.0'))
+                    dwg.add(
+                        dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill=fill, opacity='1.0'))
+            print
+    dwg.save()
+    if not quiet:
+        pass
+    print 'writing: ', path_fn
+    print 'x * y = ', svg_dimensions
+
+#======================================================================
 
 do_make_rename_file      = False
 do_synthesize_new_images = False
 do_calc_average          = False
 do_connect_with_DWD_data = False
-do_calc_measurement_coord= False
 do_stitch_images         = False
 
+do_calc_data_point_coord = True
 do_plot_data_points      = True
 # do_plot_data_points = False
 
@@ -1214,7 +1228,7 @@ if __name__ == '__main__':
         list_of_pict = picts_csv_read()
 
 
-    if do_calc_measurement_coord:  # if no image changed, no calculation
+    if do_calc_data_point_coord:  # if no image changed, no calculation
         calc_data_point_coord()
         # picts_csv_write(list_of_pict)
         # list_of_pict = picts_csv_read()
