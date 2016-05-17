@@ -162,6 +162,16 @@ def get_opts_args():
 
     return quiet, do_calc_average, do_make_rename_file
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 # http://www.tutorialspoint.com/python/python_classes_objects.htm
 class PictClass(object):
     def __init__(self, param):
@@ -537,6 +547,8 @@ def picts_csv_read():
     result_fn = os.path.join(root_dir, 'results', fn)
     print '\n', 'Reading data from: \n>', result_fn
     #
+    cnt = 0
+    cnt_max = x_cnt_pct * y_cnt_pct
     new_list_of_pict = []
     with open(result_fn, 'r') as csv_file:
         reader = csv.DictReader(csv_file)
@@ -544,7 +556,9 @@ def picts_csv_read():
             if not quiet:
                 print pict_dict          # is a dict
             pict = PictClass(pict_dict)
-            new_list_of_pict.append(pict)
+            cnt += 1
+            if cnt <= cnt_max:
+                new_list_of_pict.append(pict)
     print 'successfull.'
     return new_list_of_pict
 
@@ -863,27 +877,33 @@ def find_max_width_max_height_of_pict():
 
 def connect_picts_with_DWD_data():
     # connect pict to temperature, humidity, cloudiness, ....
+    print '>>> connect_picts_with_DWD_data() BEGIN '
     # -----------------------------------------------------------------------------------------------
+
     # temperature, humidity:
+
     DWD_data_file_fn = "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
     DWD_data_path_fn = os.path.join(path_root, path_sub_DWD, DWD_data_file_fn)
     # print DWD_data_path_fn
     data_list  = []   # == whole line of input file
     time_list  = []   # == timestamp  of input file
-    val_1_list = []   # == data_value #1 of input file, i.e. temperature, humidity or cloudiness and so on
-    val_2_list = []   # == data_value #2 of input file, i.e. temperature, humidity or cloudiness and so on
+    val_1_list = []   # == data_value #4 of input file, i.e. temperature
+    val_2_list = []   # == data_value #5 of input file, i.e. humidity
     # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; LUFTTEMPERATUR;REL_FEUCHTE;eor
+    # read all present lines; store in various lists the items of interest
     with open(DWD_data_path_fn) as data_f:
         for line in data_f:
             data_list.append (line)                       # whole line of data-file
-            time_list.append (long(line.split(';')[1]))   # timestamps  == second row
-            val_1_list.append(float(line.split(';')[4]))  # temperature at this timestamps
-            val_2_list.append(float(line.split(';')[5]))  # temperature at this timestamps
+            time_list.append (long(line.split(';')[1]))   # timestamp   == second row
+            val_1_list.append(float(line.split(';')[4]))  # temperature at this timestamp
+            val_2_list.append(float(line.split(';')[5]))  # humidity    at this timestamp
 
     list_of_pict.sort(key = attrgetter('datum'))
     for pict in list_of_pict:
         pict_time_long = long (pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
         # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
+        # for ervery day we have various timestamps an corresponding measured data point
+        # find the nearest timestamp (relative to time of photograph) an the corresponding data point:
         list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
         delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
         if not quiet:
@@ -891,7 +911,7 @@ def connect_picts_with_DWD_data():
             print "temperature =", val_1_list[idx],
             print "humidity =",    val_2_list[idx]
         pict.temperature = val_1_list[idx]
-        pict.humidity = val_2_list[idx]
+        pict.humidity    = val_2_list[idx]
 
     # -----------------------------------------------------------------------------------------------
     # DIFFUS_HIMMEL_KW_J, GLOBAL_KW_J, ATMOSPHAERE_LW_J:
@@ -900,10 +920,10 @@ def connect_picts_with_DWD_data():
     # print DWD_data_path_fn
     data_list = []  # == whole line of input file
     time_list = []  # == timestamp  of input file
-    val_1_list = [] # == data_value #1 of input file, DIFFUS_HIMMEL_KW_J
-    val_2_list = [] # == data_value #2 of input file, GLOBAL_KW_J
-    val_3_list = [] # == data_value #2 of input file, ATMOSPHAERE_LW_J
-    val_4_list = [] # == data_value #2 of input file, SONNENZENIT
+    val_1_list = [] # == data_value #3 of input file, DIFFUS_HIMMEL_KW_J
+    val_2_list = [] # == data_value #4 of input file, GLOBAL_KW_J
+    val_3_list = [] # == data_value #5 of input file, ATMOSPHAERE_LW_J
+    val_4_list = [] # == data_value #6 of input file, SONNENZENIT
     # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; SONNENSCHEINDAUER;DIFFUS_HIMMEL_KW_J;GLOBAL_KW_J;ATMOSPHAERE_LW_J;SONNENZENIT;MESS_DATUM_WOZ;eor
     with open(DWD_data_path_fn) as data_f:
         for line in data_f:
@@ -918,6 +938,8 @@ def connect_picts_with_DWD_data():
     for pict in list_of_pict:
         pict_time_long = long(pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
         # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
+        # Again: for ervery day we have various timestamps an corresponding measured data point
+        # find the nearest timestamp (relative to time of photograph) an the corresponding data point:
         list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
         delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
         if not quiet:
@@ -936,6 +958,8 @@ def connect_picts_with_DWD_data():
             pict.global_KW_J = ''
         if pict.sun_zenit == -999.0:
             pict.sun_zenit = ''
+
+    print '>>> connect_picts_with_DWD_data() END '
 
 
 def reduce_image_resolution():
@@ -1030,6 +1054,9 @@ def calc_data_point_coord():
     # highest val == higher border of pictuere - something ;
     # Remember to scale according to the picture dimensions and the cale factor.
     #
+    quiet = True
+    if not quiet:
+        print '>>> calc_data_point_coord() BEGIN'
 
     list_of_pict.sort(key=attrgetter('datum'))
     fieldnames = ['av_gray',   'temperature',   'humidity',   'sky_KW_J',   'global_KW_J',   'atmo_KW_J',   'sun_zenit']
@@ -1054,18 +1081,21 @@ def calc_data_point_coord():
             if strg:
                 dict_values[fieldname].append(float(strg))  # pict.fieldname
 
-    # for fieldname in fieldnames:
-    #     # pprint.pprint (dict_values[fieldname])  # pict.fieldname
-    #     # dict_values[fieldname].sort()  # pict.fieldname
-    #     print fieldname, sorted(dict_values[fieldname])  # pict.fieldname
-
     # find (and store) min max in every list:
     print
     for fieldname in fieldnames:  #
         if dict_values[fieldname]:
             dict_min[fieldname].append(min (dict_values[fieldname]))           # pict.fieldname min
             dict_max[fieldname].append(max (dict_values[fieldname]))           # pict.fieldname max
-            print fieldname, dict_min[fieldname][0], dict_max[fieldname][0]
+
+    if not quiet:
+        for fieldname in fieldnames:
+            # pprint.pprint (dict_values[fieldname])  # pict.fieldname
+            # dict_values[fieldname].sort()  # pict.fieldname
+            print "% 11s" % fieldname, # pict.fieldname
+            print "% 4.2f" % dict_min[fieldname][0], "% 4.2f" % dict_max[fieldname][0],
+            print sorted(dict_values[fieldname])
+        print
 
     # Now the data points and the scaling stuff:
     #
@@ -1074,25 +1104,225 @@ def calc_data_point_coord():
 
     test_min_max = []
 
+    y_bias = y_pict // 10
+
     for pict in list_of_pict:
         for fieldname in fieldnames:
             # if dict_values[fieldname]:
             if getattr(pict, fieldname):
-                print pict.datum, fieldname,
                 # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
                 val_min = float (dict_min[fieldname][0])
                 val_max = float (dict_max[fieldname][0])
                 val_pict= float (getattr(pict, fieldname))
-                img_y   = int ((y_pict * (val_pict - val_min) * 0.8) // (val_max - val_min))
-                print ':', getattr(pict, fieldname), dict_min[fieldname][0], dict_max[fieldname][0],
-                print ':', val_min - val_min, val_pict - val_min, val_max - val_min, ':', img_y, '  ', y_edge_high
+
+                # scale the value span to 80% of picture heigth (== y_pict)
+                # y_pict = pict height;
+                # Thus drawing the value into the picture the lowest val may lay at the lower 10% line,
+                # the highest val may lay at the upper 10% line.
+
+                img_y   = int ((y_pict * (val_pict - val_min) * 0.8) / (val_max - val_min))
+                #
+                if not quiet:
+                    delta_y = y_edge_high - img_y          # upper border - y-value
+                    print pict.datum, "% 11s" % fieldname,
+                    print ':1:', "% 5s" % getattr(pict, fieldname), "% 5.1f" % dict_min[fieldname][0], "% 6.1f" % dict_max[fieldname][0],
+                    print ':2:', "% 2.1f" % (val_min - val_min), "% 4d" % (val_pict - val_min), "% 6.1f" % (val_max - val_min),
+                    print ' :3:', "% 4d" % img_y, y_edge_high, delta_y,
+                    if ( delta_y < y_bias):
+                        print bcolors.FAIL + str(delta_y) + bcolors.ENDC
+                    else:
+                        print
                 setattr(pict, fieldname + '_y', img_y)      #
                 test_min_max.append(img_y)
-        print
+        if not quiet:
+            print
+
+    if not quiet:
+        print '>>> calc_data_point_coord() END'
     # print min(test_min_max), max(test_min_max)
 
 
-def plot_data_points_via_svg():
+def mark_image_corners(dwg):
+    test_r = 5
+    upper_left_corner  = (test_r, test_r)
+    upper_right_corner = (x_img_dim - test_r, test_r)
+    lower_left_corner  = (test_r, y_img_dim - test_r)
+    lower_right_corner = (x_img_dim - test_r, y_img_dim - test_r)
+    dwg.add(dwg.circle(center = upper_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
+    dwg.add(dwg.circle(center = upper_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
+    return dwg
+
+
+def calc_plot_xy_coordinate(pict, val, x_bias, y_bias):
+    x_coord = int(pict.x_coord) + x_bias     # x-coordinate in result image
+    low_border = int(pict.y_coord) + y_pict  # y-coordinate of lower border of _pict_ (0,0 == left upper edge of pict!)
+    y_coord = low_border                 # lower border of image
+    y_coord = y_coord - y_bias           # adjusted lower limit of y-values
+    y_coord = y_coord - int(val)         # y-coordinate according value
+    return (x_coord, y_coord)
+
+
+def plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
+    # connect data points with lines
+    quiet = True
+    if not quiet:
+        print '>>> plot_via_svg_text() BEGIN'
+
+    x_max = x_cnt_pct # global
+    y_max = y_cnt_pct # global
+
+    # we're moving along x-axis. For each field in fieldnames we look if correspondig data values exist.
+    # If so, connect data values of the adjacent picts. If you are at the far left side, there's nothing to draw.
+    font_size = "40px"
+    font_family = "Arial"
+
+    delta_y = y_pict // 10
+    y_bias  = (y_pict * 2) // 10
+    x_bias  = (x_pict * 8) // 10
+
+    list_of_pict.sort(key=attrgetter('datum'))
+    for fieldname in fieldnames:  # for each category (temperature, humidity ...)
+        text_color = field_color_dict[fieldname]
+        delta_y += 40
+        cnt = 0
+        for y_cnt in range (0, y_max):
+            for x_cnt in range(0, x_max):
+                pict = list_of_pict[cnt]                # next picture
+                pos_text = calc_plot_xy_coordinate(pict, delta_y, x_bias, y_bias )
+                if not quiet:
+                    print 'fieldname =', fieldname, ' pict.datum =', pict.datum, 'x, y =', pos_text
+                # dwg.text(fieldname, insert=pos_text, fill=text_color, style="font-size:40px; font-family:Arial")
+                font_size = "40px"
+                font_family= "Arial"
+                text = dwg.text(fieldname, insert=pos_text, fill=text_color, font_family='sans-serif', font_size=font_size)
+                # font_family = 'sans-serif', font_size = font_size
+                dwg.add(text)
+                cnt += 1
+
+    colors = ["fuchsia", "purple", "green", "lime", "yellow", "maroon", "olive", "aqua", "black",
+              "blue", "red", "silver", "teal", "gray"]
+
+    y_bias  = (y_pict * 2) // 10
+    x_bias  = (x_pict * 2) // 10
+    delta_y = 40
+    cnt = 0
+    for y_cnt in range(0, y_max):
+        for x_cnt in range(0, x_max):
+            pict = list_of_pict[cnt]  # next picture
+            if not quiet:
+                print 'Model =', pict.Model, ' pict.datum =', pict.datum, 'x, y =', pos_text
+            # dwg.text(fieldname, insert=pos_text, fill=text_color, style="font-size:40px; font-family:Arial")
+            model = pict.Model
+            if model != "synthesized":
+                text_color = "aqua"
+            else:
+                text_color = "red"
+
+            text_color = "aqua"
+            pos_text = calc_plot_xy_coordinate(pict, delta_y, x_bias, y_bias)
+            text = dwg.text(pict.datum, insert=pos_text, fill=text_color, font_family='sans-serif', font_size=font_size)
+            dwg.add(text)
+
+            if model == "synthesized": text_color = "red"
+            pos_text = calc_plot_xy_coordinate(pict, delta_y, x_bias, y_bias + delta_y)
+            text = dwg.text(model     , insert=pos_text, fill=text_color, font_family='sans-serif', font_size=font_size)
+            dwg.add(text)
+            cnt += 1
+
+    if not quiet:
+        print '>>> plot_via_svg_text() END'
+    return dwg
+
+
+def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
+    # connect data points with lines
+    quiet = True
+    if not quiet:
+        print '>>> plot_via_svg_data_lines() BEGIN'
+
+    x_max = x_cnt_pct # global
+    y_max = y_cnt_pct # global
+
+    # radius = x_pict // 100
+    list_of_pict.sort(key=attrgetter('datum'))
+
+    # we're moving along x-axis. For each field in fieldnames we look if correspondig data values exist.
+    # If so, connect data values of the adjacent picts. If you are at the far left side, there's nothing to draw.
+    p_1 = (0, 0)
+    p_2 = (0, 0)
+    stroke_width = 12
+    for fieldname in fieldnames:  # for each category (temperature, humidity ...)
+        stroke_color = field_color_dict[fieldname]
+        cnt = 0
+        for y_cnt in range (0, y_max):
+            for x_cnt in range(0, x_max):
+                pict = list_of_pict[cnt]                # next picture
+                if not quiet:
+                    print 'fieldname =', fieldname, 'cnt = ', "% 3d" % cnt, '   pict.datum =', pict.datum, 'x_cnt , y_cnt =', x_cnt, y_cnt,
+                val = getattr(pict, fieldname + '_y')  # get the value as string
+                if val:                                # is there a value in this category?
+                    if p_1 == (0, 0):                  # far left side??
+                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
+                        p_1 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                    else:
+                        p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                        line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
+                        dwg.add(line)
+                        # draw_line (p1, p2)
+                        p_1 = p_2
+                if (x_cnt == x_max - 1):
+                    p_1 = 0, 0
+                cnt += 1
+                if not quiet:
+                    print p_1, p_2
+    if not quiet:
+        print '>>> plot_via_svg_data_lines() END'
+    return dwg
+
+
+def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
+    # Plot data points via svg
+    quiet = True
+    if not quiet:
+        print '>>> plot_via_svg_data_points() BEGIN'
+
+    radius = x_pict // 100
+
+    for pict in list_of_pict:
+        if (pict.x_coord and pict.y_coord):
+            for fieldname in fieldnames:  # for each category (temperature, humidity ...)
+                # if dict_values[fieldname]:
+                if getattr(pict, fieldname):                 # is there a value in this category?
+                    val = getattr(pict, fieldname + '_y')    # get the value as string
+                    (x_circle, y_circle) = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+
+                    if not quiet:
+                        y_top = int(pict.y_coord) + y_pict
+                        print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
+                        print "% 6d " % val, "% 6d " % x_circle, "% 6d " % y_circle, "% 6d " % y_top,
+                        if (y_top - y_circle) < 50:
+                            print bcolors.FAIL + str(y_circle - y_top) + bcolors.ENDC
+                            print ''
+                        else:
+                            print
+
+                    fill = field_color_dict[fieldname]
+                    # dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill='purple', opacity='0.5'))
+                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 4, stroke='none', fill='black',
+                                       opacity='1.0'))
+                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 2, stroke='none', fill='white',
+                                       opacity='1.0'))
+                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill=fill, opacity='1.0'))
+            if not quiet:
+                print
+    if not quiet:
+        print '>>> plot_via_svg_data_points() END'
+    return dwg
+
+
+def plot_data_via_svg():
     # Pixelorientierte Graphik:
     # http://stackoverflow.com/questions/13714454/specifying-and-saving-a-figure-with-exact-size-in-pixels
     # Rand um Bild herum entfernen
@@ -1103,59 +1333,48 @@ def plot_data_points_via_svg():
     # http://stackoverflow.com/questions/15160123/adding-a-background-image-to-a-plot-with-known-corner-coordinates
     # http://stackoverflow.com/questions/5073386/how-do-you-directly-overlay-a-scatter-plot-on-top-of-a-jpg-image-in-matplotlib
     #
-    #
     # Mit anderen Worten: matplotlib ist bildschirmorientiert, es macht Graphiken, die am Bildschirm ausgegeben
     # werden sollen. ABER: ich will ja in bestehende Bilder die Graphiken hineinzeichnen.
-    # Auswega:
+    # Auswege:
     # a) man kann die Bildgröße der matplotlib Graphken über den dpi Parameter in etwa so regulieren,
-    # dass man pixelorientioertes Zeichnen simuliert.
-    #    ABER geht das aucuh mitmgroßen Bildern? Ist es genau genug??
+    #    dass man pixelorientioertes Zeichnen simuliert. ABER geht das auch mit großen Bildern? Ist es genau genug??
     # b) andere Library?  => try svg
     #
+    quiet = False
+
     svg_dimensions = x_img_dim, y_img_dim
-
     path_fn = make_result_path_fn('results', act_date_time_str() + 'img_data_points.svg')  # fn von data points file
+    # initialize svg canvas 'dwg':
     dwg = svgwrite.Drawing(path_fn, (svg_dimensions), profile='tiny', debug=True)
-    # Forcing svgwrite to set dimensions to svg_size_width x svg_size_height:
-    dwg.add(dwg.circle(center=(1, 1), r=1, stroke='none', fill='black', opacity='1.0'))
-    dwg.add(dwg.circle(center=svg_dimensions, r=1, stroke='none', fill='black', opacity='1.0'))
-
+    #
+    x_bias = x_pict // 10   # left  border for graphs x axis
+    y_bias = y_pict // 10   # lower/higher border for graphs y-axis
+    #
     fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
     # colors     = ["#99FFCC", "#CCCC99", "#CCCCCC", "#CCCCFF", "#CCFF99", "#CCFFCC", "#CCFFFF", "#FFCC99",
     #               "#FFCCCC", "#FFCCFF", "#FFFF99", "#FFFFCC" ]
-    colors = ["aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive",
-              "purple", "red", "silver", "teal", "white", "yellow"]
+    # colors = ["aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive",
+    #           "purple", "red", "silver", "teal", "white", "yellow"]
+    colors = ["fuchsia", "purple", "green", "lime", "yellow", "maroon", "olive", "aqua", "black",
+              "blue", "red", "silver", "teal", "gray"]
     field_color_dict = dict(zip(fieldnames, colors))
-    # pprint.pprint(field_color_dict)
-
-    x_delta = x_pict // 10
-    radius = x_delta // 10
-    for pict in list_of_pict:
-        if (pict.x_coord and pict.y_coord):
-            for fieldname in fieldnames:  # for each category (temperature, humidity ...)
-                # if dict_values[fieldname]:
-                if getattr(pict, fieldname):  # is there a value in this
-                    val = getattr(pict, fieldname + '_y')  # get the value as string
-                    x_circle = int(pict.x_coord) + x_delta  # x-coordinate in result image
-                    y_circle = int(pict.y_coord) + int(val)  # y-coordinate according value
-                    if not quiet: pass
-                    # print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
-                    # print val, x_circle, y_circle
-
-                    fill = field_color_dict[fieldname]
-                    # dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill='purple', opacity='0.5'))
-                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 4, stroke='none', fill='black',
-                                       opacity='1.0'))
-                    dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 2, stroke='none', fill='white',
-                                       opacity='1.0'))
-                    dwg.add(
-                        dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill=fill, opacity='1.0'))
-            print
+    #
+    # Forcing svgwrite to set dimensions to svg_size_width x svg_size_height:
+    dwg = mark_image_corners(dwg)
+    # Plot lines
+    dwg = plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias)
+    # Plot data points
+    dwg = plot_via_svg_data_points(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias)
+    #  Plot data legend
+    plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias)
+    #
     dwg.save()
+    #
     if not quiet:
-        pass
-    print 'writing: ', path_fn
-    print 'x * y = ', svg_dimensions
+        print 'writing: ', path_fn
+        print 'x * y = ', svg_dimensions
+
+
 
 #======================================================================
 
@@ -1166,7 +1385,7 @@ do_connect_with_DWD_data = False
 do_stitch_images         = False
 
 do_calc_data_point_coord = True
-do_plot_data_points      = True
+do_plot_data             = True
 # do_plot_data_points = False
 
 if __name__ == '__main__':
@@ -1228,11 +1447,6 @@ if __name__ == '__main__':
         list_of_pict = picts_csv_read()
 
 
-    if do_calc_data_point_coord:  # if no image changed, no calculation
-        calc_data_point_coord()
-        # picts_csv_write(list_of_pict)
-        # list_of_pict = picts_csv_read()
-
     # reduce_image_resolution()
     # 2016-05_04 images resized to 1/4 of original dimensions
 
@@ -1240,8 +1454,13 @@ if __name__ == '__main__':
         stitch_images()
         picts_csv_write(list_of_pict)
 
-    if do_plot_data_points:
-        plot_data_points_via_svg()
+    if do_calc_data_point_coord:  # if no image changed, no calculation
+        calc_data_point_coord()
+        picts_csv_write(list_of_pict)
+        list_of_pict = picts_csv_read()
+
+    if do_plot_data:
+        plot_data_via_svg()
         pass
 
     picts_csv_write(list_of_pict)
