@@ -116,7 +116,7 @@ def usage(exit_status):
 def get_opts_args():
     global root_dir
     global quiet
-    global do_calc_average
+    global do_calc_average_gray_level
     global do_make_rename_file
     global batch_file
     global batch_f_name
@@ -132,7 +132,7 @@ def get_opts_args():
 
     for o, a in opts:
         if o in ("-a", "--avrge"):
-            do_calc_average = True
+            do_calc_average_gray_level = True
         if o in ("-b", "--batch"):
             do_make_rename_file = True
         if o in ("-s", "--syn"):
@@ -160,7 +160,7 @@ def get_opts_args():
             print "'%s' is unwritable\n" % batch_f_name
             sys.exit(2)
 
-    return quiet, do_calc_average, do_make_rename_file
+    return quiet, do_calc_average_gray_level, do_make_rename_file
 
 class bcolors:
     HEADER = '\033[95m'
@@ -1450,21 +1450,21 @@ def plot_data_via_svg():
 
 #======================================================================
 
-do_make_rename_file      = False
-do_synthesize_new_images = False
-do_calc_average          = False
-do_connect_with_DWD_data = False
-do_stitch_images         = False
+do_make_rename_file        = False
+do_synthesize_new_images   = False
+do_stitch_images           = False
 
-do_calc_data_point_coord = True
-do_plot_data             = True
-# do_plot_data_points = False
+do_calc_average_gray_level = False
+do_connect_with_DWD_data   = False
+
+do_calc_data_point_coord   = True
+do_plot_data               = True
 
 if __name__ == '__main__':
     # >list_of_pict< is global
     # global list_of_pict
 
-    quiet, do_calc_average, do_make_rename_file = get_opts_args()
+    quiet, do_calc_average_gray_level, do_make_rename_file = get_opts_args()
 
     initialize_list_of_picts()
 
@@ -1500,24 +1500,7 @@ if __name__ == '__main__':
         list_of_pict = picts_csv_read()
 
     # test_EXIF_Tag(list_of_pict[0])
-
-    if do_calc_average or cnt_synthd_images:   # if no image changed, no calculation
-        calc_average_graylevel()
-        picts_csv_write(list_of_pict)
-        list_of_pict = picts_csv_read()
-
-    # print_all_picts_in_list()
-    # picts_show_class_members(list_of_pict)
-
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
-
-    # max_w, max_h = find_max_width_max_height_of_pict() # => All picts are: x_pict_org * y_pict_org
-
-    if do_connect_with_DWD_data:
-        connect_picts_with_DWD_data()
-        picts_csv_write(list_of_pict)
-        list_of_pict = picts_csv_read()
-
 
     # reduce_image_resolution()
     # 2016-05_04 images resized to 1/4 of original dimensions
@@ -1526,6 +1509,20 @@ if __name__ == '__main__':
         stitch_images()
         picts_csv_write(list_of_pict)
 
+    if do_calc_average_gray_level or cnt_synthd_images:   # if no image changed, no calculation
+        calc_average_graylevel()
+        picts_csv_write(list_of_pict)
+        list_of_pict = picts_csv_read()
+
+    # print_all_picts_in_list()
+    # picts_show_class_members(list_of_pict)
+    # max_w, max_h = find_max_width_max_height_of_pict() # => All picts are: x_pict_org * y_pict_org
+
+    if do_connect_with_DWD_data:
+        connect_picts_with_DWD_data()
+        picts_csv_write(list_of_pict)
+        list_of_pict = picts_csv_read()
+
     if do_calc_data_point_coord:  # if no image changed, no calculation
         calc_data_point_coord()
         picts_csv_write(list_of_pict)
@@ -1533,8 +1530,7 @@ if __name__ == '__main__':
 
     if do_plot_data:
         plot_data_via_svg()
-        pass
 
-    picts_csv_write(list_of_pict)
+    # picts_csv_write(list_of_pict)
 
     print "\n> end"
