@@ -92,6 +92,9 @@ border         = border // scale_factor
 x_pict         = x_pict_org // scale_factor # pixels on x-axis of single pict
 y_pict         = y_pict_org // scale_factor # pixels on y-axis of single pict
 
+x_bias         = x_pict // 10  # left  distance for data points in graphs     in picts (x axis)
+y_bias         = y_pict // 10  # lower/higher limit for data points in graphs in picts (y axis)
+
 # img == result image
 x_img_dim      = (x_cnt_pct * x_pict) + (x_cnt_pct * border) + 3 * border # pixels on x-axis of result image
 y_img_dim      = (y_cnt_pct * y_pict) + (y_cnt_pct * border) + 3 * border # pixels on y-axis of result image
@@ -192,23 +195,30 @@ class PictClass(object):
             self.ExpoTime     = ''
             self.ISOSpeed     = ''
             self.ISOSpeed_str = ''
-            self.av_gray      = '-999.0'
-            self.temperature  = ''
-            self.humidity     = ''
-            self.sky_KW_J     = '' #HIMMEL_KW_J
-            self.global_KW_J  = '' #GLOBAL_KW_J
-            self.atmo_KW_J    = '' #ATMOSPHAERE_LW_J
-            self.sun_zenit    = '' #SONNENZENIT
-            self.sources      = ''
+            self.av_gray      = '-999.0'                 # measured value == val
+            self.temperature  = ''                       # measured value == val
+            self.humidity     = ''                       # measured value == val
+            self.sky_KW_J     = '' #HIMMEL_KW_J          # measured value == val
+            self.global_KW_J  = '' #GLOBAL_KW_J          # measured value == val
+            self.atmo_KW_J    = '' #ATMOSPHAERE_LW_J     # measured value == val
+            self.sun_zenit    = '' #SONNENZENIT          # measured value == val
+            self.av_gray_x    = str(x_bias)              # x-value on graph in pict
+            self.temperature_x= str(x_bias)              # x-value on graph in pict
+            self.humidity_x   = str(x_bias)              # x-value on graph in pict
+            self.sky_KW_J_x   = str(x_bias) #HIMMEL_KW_J # x-value on graph in pict
+            self.global_KW_J_x= str(x_bias) #GLOBAL_KW_J # x-value on graph in pict
+            self.atmo_KW_J_x  = str(x_bias) #ATMOSPHAERE_LW_J # x-value on graph in pict
+            self.sun_zenit_x  = str(x_bias) #SONNENZENIT # x-value on graph in pict
+            self.av_gray_y    = ''                       # measured value as string
+            self.temperature_y= ''                       # measured value as string
+            self.humidity_y   = ''                       # measured value as string
+            self.sky_KW_J_y   = '' #HIMMEL_KW_J          # measured value as string
+            self.global_KW_J_y= '' #GLOBAL_KW_J          # measured value as string
+            self.atmo_KW_J_y  = '' #ATMOSPHAERE_LW_J     # measured value as string
+            self.sun_zenit_y  = '' #SONNENZENIT          # measured value as string
+
             self.x_coord      = '' # x_coord in result_image
             self.y_coord      = '' # y_coord in result_image
-            self.av_gray_y    = ''
-            self.temperature_y= ''
-            self.humidity_y   = ''
-            self.sky_KW_J_y   = '' #HIMMEL_KW_J
-            self.global_KW_J_y= '' #GLOBAL_KW_J
-            self.atmo_KW_J_y  = '' #ATMOSPHAERE_LW_J
-            self.sun_zenit_y  = '' #SONNENZENIT
             # self.xxxxxxx     = ''
             # self.xxxxxxx     = ''
 
@@ -244,15 +254,22 @@ class PictClass(object):
         self.global_KW_J  ,
         self.atmo_KW_J    ,
         self.sun_zenit    ,
-        self.x_coord      ,
-        self.y_coord      ,
+        self.av_gray_x    ,
+        self.temperature_x,
+        self.humidity_x   ,
+        self.sky_KW_J_x   ,
+        self.global_KW_J_x,
+        self.atmo_KW_J_x  ,
+        self.sun_zenit_x  ,
         self.av_gray_y    ,
         self.temperature_y,
         self.humidity_y   ,
         self.sky_KW_J_y   ,
         self.global_KW_J_y,
         self.atmo_KW_J_y  ,
-        self.sun_zenit_y
+        self.sun_zenit_y  ,
+        self.x_coord      ,
+        self.y_coord
         )
 
     fieldnames = [ "cnt",                 # used in: >picts_csv_write()< writing dict
@@ -262,11 +279,10 @@ class PictClass(object):
         "FNumber_str" , "FNumber",
         "ExpoTime_str", "ExpoTime",
         "ISOSpeed", "ISOSpeed_str",
-        "av_gray",
-        "temperature", "humidity",
-        "sky_KW_J", "global_KW_J", "atmo_KW_J", "sun_zenit",
-        "x_coord", "y_coord",
-        "av_gray_y", "temperature_y", "humidity_y", "sky_KW_J_y", "global_KW_J_y", "atmo_KW_J_y", "sun_zenit_y"
+        "av_gray",   "temperature",   "humidity",   "sky_KW_J",   "global_KW_J",   "atmo_KW_J",   "sun_zenit",
+        "av_gray_x", "temperature_x", "humidity_x", "sky_KW_J_x", "global_KW_J_x", "atmo_KW_J_x", "sun_zenit_x",
+        "av_gray_y", "temperature_y", "humidity_y", "sky_KW_J_y", "global_KW_J_y", "atmo_KW_J_y", "sun_zenit_y",
+        "x_coord", "y_coord"
         ]
 
 
@@ -543,7 +559,7 @@ def picts_csv_read():
             pass
             # print
 
-    fn = max(result_files)                             # most recent result file.
+    fn = max(result_files)  # most recent result file (>YYYY_MM_DD_mm_result.csv<).
     result_fn = os.path.join(root_dir, 'results', fn)
     print '\n', 'Reading data from: \n>', result_fn
     #
@@ -1418,8 +1434,8 @@ def plot_data_via_svg():
     # initialize svg canvas 'dwg':
     dwg = svgwrite.Drawing(path_fn, (svg_dimensions), profile='tiny', debug=True)
     #
-    x_bias = x_pict // 10   # left  border for graphs x axis
-    y_bias = y_pict // 10   # lower/higher border for graphs y-axis
+    # x_bias  global
+    # y_bias  global
     #
     fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
     # colors     = ["#99FFCC", "#CCCC99", "#CCCCCC", "#CCCCFF", "#CCFF99", "#CCFFCC", "#CCFFFF", "#FFCC99",
@@ -1455,7 +1471,7 @@ do_synthesize_new_images   = False
 do_stitch_images           = False
 
 do_calc_average_gray_level = False
-do_connect_with_DWD_data   = False
+do_connect_with_DWD_data   = True
 
 do_calc_data_point_coord   = True
 do_plot_data               = True
