@@ -1235,63 +1235,14 @@ def plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias,
         print '>>> plot_via_svg_text() END'
     return dwg
 
-
-def plot_via_svg_data_lines_expanding_01(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
-    # connect data points with lines expanding over the border of image
-    quiet = True
-    if not quiet:
-        print '>>> plot_via_svg_data_lines() BEGIN'
-
-    x_max = x_cnt_pct # global
-    y_max = y_cnt_pct # global
-
-    # radius = x_pict // 100
-    list_of_pict.sort(key=attrgetter('datum'))
-
-    # we're moving along x-axis. For each field in fieldnames we look if correspondig data values exist.
-    # If so, connect data values of the adjacent picts. If you are at the far left side, there's nothing to draw.
-    p_1 = (0, 0)
-    p_2 = (0, 0)
-    stroke_width = 12
-    for fieldname in fieldnames:  # for each category (temperature, humidity ...)
-        stroke_color = field_color_dict[fieldname]
-        cnt = 0
-        for y_cnt in range (0, y_max):
-            for x_cnt in range(0, x_max + 1):
-                if not quiet:
-                    print 'fieldname =', fieldname, 'cnt = ', "% 3d" % cnt, '   pict.datum =', pict.datum, 'x_cnt , y_cnt =', x_cnt, y_cnt,
-                if (x_cnt < x_max):
-                    pict = list_of_pict[cnt]               # next picture
-                    val = getattr(pict, fieldname + '_y')  # get the value as string
-                    if val:                                # is there a value in this category?
-                        if p_1 == (0, 0):                  # far left side??
-                            # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
-                            p_1 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
-                        else:
-                            p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
-                            line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
-                            dwg.add(line)
-                            p_1 = p_2
-                    # if (x_cnt == x_max - 1):
-                    #     p_1 = 0, 0
-                    cnt += 1
-                elif (x_cnt == x_max) and (y_cnt < y_max - 1):
-                    print x_cnt, cnt
-                    pict = list_of_pict[cnt]  # next picture
-                    val = getattr(pict, fieldname + '_y')  # get the value as string
-                    if val:  # is there a value in this category?
-                        p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
-                        p_2 = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)
-                        line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
-                        dwg.add(line)
-                    p_1 = (0, 0)
-                    cnt = cnt - 1
-
-                if not quiet:
-                    print p_1, p_2
-    if not quiet:
-        print '>>> plot_via_svg_data_lines() END'
-    return dwg
+def ret_y_at_x_in_line_through_p1_p2(x, p1, p2):
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    m = float(dy) / dx
+    y = float(x - p1[0]) * m + p1[1]
+    y = int(y)
+    print p1, p2, dx, dy, m, x, y
+    return y
 
 
 def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
@@ -1330,6 +1281,11 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
                         # 1: draw right lines on far right pic on row above:
                         p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
                         p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)
+                        # straight cartesian_line: y = ax + b  with points p_1 and p_2b
+                        c_line = (0,0)
+                        x = int(pict.x_coord) + x_pict
+                        ret_y_at_x_in_line_through_p1_p2(x, p_1, p_2b)
+
                         line = dwg.line(start=p_1, end=p_2b, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
                         # 1: draw left lines an far left pic (== actual pic)
