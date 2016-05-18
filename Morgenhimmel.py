@@ -1295,7 +1295,7 @@ def plot_via_svg_data_lines_expanding_01(dwg, fieldnames, field_color_dict, svg_
 
 
 def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
-    # connect data points with lines
+    # connect data points with lines expanding lines on the far left and far right side.
     quiet = True
     if not quiet:
         print '>>> plot_via_svg_data_lines() BEGIN'
@@ -1324,12 +1324,15 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
                     if   (x_cnt == 0) and (y_cnt == 0):  # pict is on far left side and is not first pict.
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
                         p_1 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
-                    elif (x_cnt == 0) and (y_cnt != 0):  # pict is on far left side and is not first pict.
+                    elif (x_cnt == 0) and (y_cnt != 0):
+                        # pict is on far left side and is not first pict.
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
+                        # 1: draw right lines on far right pic on row above:
                         p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
                         p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)
                         line = dwg.line(start=p_1, end=p_2b, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
+                        # 1: draw left lines an far left pic (== actual pic)
                         p_1 = p_2
                         # p_2  = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
                         # line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
