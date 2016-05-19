@@ -122,7 +122,7 @@ def usage(exit_status):
 def get_opts_args():
     global path_picts
     global quiet
-    global do_calc_average_gray_level
+    global do_calc_calc_av_gray
     global do_make_rename_file
     global batch_file
     global batch_f_name
@@ -138,7 +138,7 @@ def get_opts_args():
 
     for o, a in opts:
         if o in ("-a", "--avrge"):
-            do_calc_average_gray_level = True
+            do_calc_calc_av_gray = True
         if o in ("-b", "--batch"):
             do_make_rename_file = True
         if o in ("-s", "--syn"):
@@ -166,7 +166,7 @@ def get_opts_args():
             print "'%s' is unwritable\n" % batch_f_name
             sys.exit(2)
 
-    return quiet, do_calc_average_gray_level, do_make_rename_file
+    return quiet, do_calc_calc_av_gray, do_make_rename_file
 
 class bcolors:
     HEADER = '\033[95m'
@@ -286,7 +286,7 @@ class PictClass(object):
         self.y_coord
         )
 
-    fieldnames = [ "cnt",                 # used in: >picts_csv_write()< writing dict
+    fieldnames = [ "cnt",                 # used in: >csv_picts_write()< writing dict
         "datum", "Make", "Model",
         "date", "fn", "fn_old", "path_fn",
         "sources",
@@ -531,7 +531,7 @@ def act_date_time_str():
     return now.strftime("%Y_%m_%d_%H_%M_")
     # return dt_str
 
-def picts_csv_write(list_of_pict):
+def csv_picts_write(list_of_pict):
     # >PictClass< erbt von >object< => >pict.__dict__< ist ein dictionary und kann mit >csv.DictWriter< serialisiert werden.
     # http://stackoverflow.com/questions/61517/python-dictionary-from-an-objects-fields
     # http://stackoverflow.com/questions/3086973/how-do-i-convert-this-list-of-dictionaries-to-a-csv-file-python
@@ -554,7 +554,7 @@ def picts_csv_write(list_of_pict):
             writer.writerow(pict.__dict__)            # write values of dictionary: >pict.__dict__<. dictionary!!
     # pprint.pprint(fieldnames)
 
-def picts_csv_read():
+def csv_picts_read():
     # (SilentGhost' answer is helpfull) but here we use _existing_ class -> simply adapt >PictClass.__init__<
     # http://stackoverflow.com/questions/1639174/creating-class-instance-properties-from-a-dictionary-in-python
     #
@@ -874,17 +874,28 @@ def synthesize_missing_picts():
         return cnt_synthd_images
 
 
-def calc_average_graylevel():
-    # print '>>>>>>>> calc_average_graylevel():'
-    list_of_pict.sort(key = attrgetter('Model', 'datum'))
+def calc_av_gray():
+    # print '>>>>>>>> calc_av_gray():'
+    list_of_pict.sort(key = attrgetter('datum'))
     cnt = 0
     for pict in list_of_pict:
-        cnt += 1
-        print "\r  ", cnt, ': image # ', pict.fn, ' gray level = ',
         image = Image.open(pict.path_fn).convert('L')
         im_np_array  = np.array(image)
         pict.av_gray = "{:.2f}".format(np.average(im_np_array))  # "{:.9f}".format(numvar)
-        print pict.av_gray
+        if not quiet:
+            cnt += 1
+            print "\r  ", cnt, ': image # ', pict.fn, ' gray level = ', pict.av_gray
+
+
+def calc_F2divTISO():
+    # print '>>>>>>>> F2divTISO():'
+    list_of_pict.sort(key = attrgetter('datum'))
+    for pict in list_of_pict:
+        image = Image.open(pict.path_fn).convert('L')
+        if pict.Model != 'synthesized':
+            pict.F2divTISO = int (float (pict.FNumber) * float(pict.FNumber) / ((float(pict.ExpoTime) * float(pict.ISOSpeed))))
+        print "\r  ", ': image # ', pict.fn, pict.ExpoTime, pict.ISOSpeed, ' F2divTISO = ', pict.F2divTISO
+
 
 def find_max_width_max_height_of_pict():
     cnt = 0
@@ -911,7 +922,6 @@ def connect_picts_with_DWD_data():
     # -----------------------------------------------------------------------------------------------
 
     # temperature, humidity:
-
     DWD_data_file_fn = "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
     DWD_data_path_fn = os.path.join(path_root, sub_dir_DWD, DWD_data_file_fn)
     # print DWD_data_path_fn
@@ -968,7 +978,7 @@ def connect_picts_with_DWD_data():
     for pict in list_of_pict:
         pict_time_long = long(pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
         # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
-        # Again: for ervery day we have various timestamps an corresponding measured data point
+        # Again: for every day we have various timestamps an corresponding measured data point
         # find the nearest timestamp (relative to time of photograph) an the corresponding data point:
         list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
         delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
@@ -1056,9 +1066,6 @@ def stitch_images():
             x_idx = x_idx + x_pict
         y_idx = y_idx + y_pict
         if not quiet: print
-        # cnt += 1
-        # if cnt > 1:
-        #     break
 
     # res_image.show(fn)
     print '\nPrinting: ', fn, '\n'
@@ -1067,15 +1074,28 @@ def stitch_images():
     # res_image.save(fn, optimize=True, quality=95)
 
 
-def calc_data_point_coord():
-    # task: in every single picture just show graphically for certain interesting parameters (temperature, humidity, av_gray ...)
-    # the value as points. The height is indicating the _normalized_ values.
+def mark_image_corners(dwg):
+    test_r = 5
+    upper_left_corner  = (test_r, test_r)
+    upper_right_corner = (x_img_dim - test_r, test_r)
+    lower_left_corner  = (test_r, y_img_dim - test_r)
+    lower_right_corner = (x_img_dim - test_r, y_img_dim - test_r)
+    dwg.add(dwg.circle(center = upper_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
+    dwg.add(dwg.circle(center = upper_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
+    return dwg
+
+
+def calc_pict_datapoint_coord(data_fields):
+    # In every single picture calc height of representing data point representing value in _normalized_ form,
+    # i.e. fitting in span of image height an respecting some upper and lower border.
     # So: for every parameter
     #     find the range (i.e. min, max)
     #     calculate correspondig datapoint.
     # a little bit tricky:
     # we dynamically create dictionarys with
-    #   keys corresponding to the fieldnames (i.e. : 'av_gray', 'temperature', 'humidity', ...)  and
+    #   keys corresponding to the data_fields (i.e. : 'av_gray', 'temperature', 'humidity', ...)  and
     #   vals corresponding to lists containing the values of this field of all the pics (i.e. 'av_gray': [a1, a2, .. an]
     # We identify the corresponding min and max for every parameter;
     #
@@ -1086,11 +1106,10 @@ def calc_data_point_coord():
     #
     quiet = True
     if not quiet:
-        print '>>> calc_data_point_coord() BEGIN'
+        print '>>> calc_pict_datapoint_coord() BEGIN'
 
     list_of_pict.sort(key=attrgetter('datum'))
-    fieldnames = ['av_gray',   'temperature',   'humidity',   'sky_KW_J',   'global_KW_J',   'atmo_KW_J',   'sun_zenit']
-               #  'av_gray_y', 'temperature_y', 'humidity_y', 'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
+               #   F2divTISO_y, 'av_gray_y', 'temperature_y', 'humidity_y', 'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
 
     # initialize dicts:
     dict_values = {}
@@ -1098,14 +1117,14 @@ def calc_data_point_coord():
     dict_max = {}
 
     # initialize lists in dicts (these lists are the vals of the dicts, i.e. key:[]):
-    for fieldname in fieldnames:
+    for fieldname in data_fields:
         dict_values[fieldname] = []  # dict with k:v == fieldname:[pict[0].fieldname, pict[1].fieldname, ...]
         dict_min[fieldname]    = []  # dict with k:v == fieldname:[min (pict[0..n)].fieldname)]
         dict_max[fieldname]    = []  # dict with k:v == fieldname:[max (pict[0..n)].fieldname)]
 
     # for every element in dict_values, 'field_name':list, fill the list with pct.field_name[0 ... n]:
     for pict in list_of_pict:
-        for fieldname in fieldnames:
+        for fieldname in data_fields:
             # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
             strg = getattr(pict, fieldname)
             if strg:
@@ -1113,13 +1132,13 @@ def calc_data_point_coord():
 
     # find (and store) min max in every list:
     print
-    for fieldname in fieldnames:  #
+    for fieldname in data_fields:  #
         if dict_values[fieldname]:
             dict_min[fieldname].append(min (dict_values[fieldname]))           # pict.fieldname min
             dict_max[fieldname].append(max (dict_values[fieldname]))           # pict.fieldname max
 
     if not quiet:
-        for fieldname in fieldnames:
+        for fieldname in data_fields:
             # pprint.pprint (dict_values[fieldname])  # pict.fieldname
             # dict_values[fieldname].sort()  # pict.fieldname
             print "% 11s" % fieldname, # pict.fieldname
@@ -1137,7 +1156,7 @@ def calc_data_point_coord():
     y_bias = y_pict // 10
 
     for pict in list_of_pict:
-        for fieldname in fieldnames:
+        for fieldname in data_fields:
             # if dict_values[fieldname]:
             if getattr(pict, fieldname):
                 # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
@@ -1168,24 +1187,13 @@ def calc_data_point_coord():
             print
 
     if not quiet:
-        print '>>> calc_data_point_coord() END'
+        print '>>> calc_pict_datapoint_coord() END'
     # print min(test_min_max), max(test_min_max)
 
 
-def mark_image_corners(dwg):
-    test_r = 5
-    upper_left_corner  = (test_r, test_r)
-    upper_right_corner = (x_img_dim - test_r, test_r)
-    lower_left_corner  = (test_r, y_img_dim - test_r)
-    lower_right_corner = (x_img_dim - test_r, y_img_dim - test_r)
-    dwg.add(dwg.circle(center = upper_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
-    dwg.add(dwg.circle(center = upper_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
-    dwg.add(dwg.circle(center = lower_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
-    dwg.add(dwg.circle(center = lower_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
-    return dwg
 
 
-def img_datapoint_xy_coordinate(pict, val_x, val_y):
+def calc_img_datapoint_coord(pict, val_x, val_y):
     # calc x,y coordinates in result image of data point.
     x_coord    = int(pict.x_coord) + int(val_x)  # x-coordinate in result image res_img
     #
@@ -1222,7 +1230,7 @@ def plot_via_svg_text(dwg, fieldnames, field_color_dict, x_bias, y_bias):
         for y_cnt in range (0, y_max):
             for x_cnt in range(0, x_max):
                 pict = list_of_pict[cnt]                # next picture
-                pos_text = img_datapoint_xy_coordinate(pict, x_bias, y_bias + delta_y)
+                pos_text = calc_img_datapoint_coord(pict, x_bias, y_bias + delta_y)
                 if not quiet:
                     print 'fieldname =', fieldname, ' pict.datum =', pict.datum, 'x, y =', pos_text
                 # dwg.text(fieldname, insert=pos_text, fill=text_color, style="font-size:40px; font-family:Arial")
@@ -1253,12 +1261,12 @@ def plot_via_svg_text(dwg, fieldnames, field_color_dict, x_bias, y_bias):
                 text_color = "red"
 
             text_color = "aqua"
-            pos_text = img_datapoint_xy_coordinate(pict, x_bias, y_bias + delta_y)
+            pos_text = calc_img_datapoint_coord(pict, x_bias, y_bias + delta_y)
             text = dwg.text(pict.datum, insert=pos_text, fill=text_color, font_family='sans-serif', font_size=font_size)
             dwg.add(text)
 
             if model == "synthesized": text_color = "red"
-            pos_text = img_datapoint_xy_coordinate(pict, x_bias, y_bias)
+            pos_text = calc_img_datapoint_coord(pict, x_bias, y_bias)
             text = dwg.text(model     , insert=pos_text, fill=text_color, font_family='sans-serif', font_size=font_size)
             dwg.add(text)
             cnt += 1
@@ -1313,13 +1321,13 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
                 if val_y:                                # is there a value in this category?
                     if (x_cnt == 0) and (y_cnt == 0):  # pict is on far left side and is not first pict.
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
-                        p_1 = img_datapoint_xy_coordinate(pict, val_x, val_y)
+                        p_1 = calc_img_datapoint_coord(pict, val_x, val_y)
                     elif (x_cnt == 0) and (y_cnt != 0):
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
                         # pict is on far left side and is not first pict.
                         #
                         # 1) draw right lines on far right pic on row above:
-                        p_2  = img_datapoint_xy_coordinate(pict, val_x, val_y)  # pict: original coordinates
+                        p_2  = calc_img_datapoint_coord(pict, val_x, val_y)  # pict: original coordinates
                         p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)     # pict: moved to the outer right side of row above.
                         # straight cartesian_line: y = ax + b  with points p_1 and p_2b
                         x = x_img_dim - 2 * border  # == right border of most right pict
@@ -1340,7 +1348,7 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
                         dwg.add(line)
                         #
                         # 2) draw left lines an far left pic (== actual pic)
-                        p_2  = img_datapoint_xy_coordinate(pict, val_x, val_y)  # pict_2: original coordinates
+                        p_2  = calc_img_datapoint_coord(pict, val_x, val_y)  # pict_2: original coordinates
                         p_1b = (p_2[0] - x_pict - border, p_1[1] + y_pict + border)     # pict_1: moved to the outer left side of row above.
                         x = 2 * border  # == left border of most left pict
                         # calc equation of line passing through p1 and p2; return y at x-coord:
@@ -1355,11 +1363,11 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
                         dwg.add(line)
                         #
                         p_1 = p_2
-                        # p_2  = img_datapoint_xy_coordinate(pict, val_y)
+                        # p_2  = calc_img_datapoint_coord(pict, val_y)
                         # line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         # dwg.add(line)
                     else:
-                        p_2 = img_datapoint_xy_coordinate(pict, val_x, val_y)
+                        p_2 = calc_img_datapoint_coord(pict, val_x, val_y)
                         line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
                         p_1 = p_2
@@ -1402,9 +1410,9 @@ def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, x_bias, y_bias):
                 if val:                                # is there a value in this category?
                     if p_1 == (0, 0):                  # far left side??
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
-                        p_1 = img_datapoint_xy_coordinate(pict, x_bias)
+                        p_1 = calc_img_datapoint_coord(pict, x_bias)
                     else:
-                        p_2 = img_datapoint_xy_coordinate(pict, x_bias)
+                        p_2 = calc_img_datapoint_coord(pict, x_bias)
                         line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
                         # draw_line (p1, p2)
@@ -1431,7 +1439,7 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
                 if getattr(pict, fieldname):                 # is there a value in this category?
                     val_y = getattr(pict, fieldname + '_y')    # get the value as string
                     val_x = getattr(pict, fieldname + '_x')    # get the value as string
-                    (x_circle, y_circle) = img_datapoint_xy_coordinate(pict, val_x, val_y)
+                    (x_circle, y_circle) = calc_img_datapoint_coord(pict, val_x, val_y)
                     if not quiet:
                         y_top = int(pict.y_coord) + y_pict
                         print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
@@ -1456,7 +1464,7 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     return dwg
 
 
-def plot_data_via_svg():
+def plot_data_via_svg(data_fields):
     # Pixelorientierte Graphik:
     # http://stackoverflow.com/questions/13714454/specifying-and-saving-a-figure-with-exact-size-in-pixels
     # Rand um Bild herum entfernen
@@ -1483,24 +1491,23 @@ def plot_data_via_svg():
     # x_bias  global
     # y_bias  global
     #
-    fieldnames = ['av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
     # colors     = ["#99FFCC", "#CCCC99", "#CCCCCC", "#CCCCFF", "#CCFF99", "#CCFFCC", "#CCFFFF", "#FFCC99",
     #               "#FFCCCC", "#FFCCFF", "#FFFF99", "#FFFFCC" ]
     # colors = ["aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive",
     #           "purple", "red", "silver", "teal", "white", "yellow"]
     colors = ["fuchsia", "purple", "green", "lime", "yellow", "maroon", "olive", "aqua", "black",
               "blue", "red", "silver", "teal", "gray"]
-    field_color_dict = dict(zip(fieldnames, colors))
+    field_color_dict = dict(zip(data_fields, colors))
     #
     # Forcing svgwrite to set dimensions to svg_size_width x svg_size_height:
     dwg = mark_image_corners(dwg)
     # Plot lines
-    # dwg = plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, x_bias, y_bias)
-    dwg = plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias, y_bias)
+    # dwg = plot_via_svg_data_lines(dwg, data_fields, field_color_dict, x_bias, y_bias)
+    dwg = plot_via_svg_data_lines_expanding(dwg, data_fields, field_color_dict, x_bias, y_bias)
     # Plot data points
-    dwg = plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias)
+    dwg = plot_via_svg_data_points(dwg, data_fields, field_color_dict, x_bias, y_bias)
     #  Plot data legend
-    plot_via_svg_text(dwg, fieldnames, field_color_dict, x_bias, y_bias)
+    plot_via_svg_text(dwg, data_fields, field_color_dict, x_bias, y_bias)
     #
     dwg.save()
     #
@@ -1515,7 +1522,8 @@ do_make_rename_file        = False
 do_synthesize_new_images   = False
 do_stitch_images           = False
 
-do_calc_average_gray_level = False
+do_calc_calc_av_gray       = False
+do_calc_F2divTISO          = True
 do_connect_with_DWD_data   = False
 
 do_calc_data_point_coord   = True
@@ -1525,7 +1533,7 @@ if __name__ == '__main__':
     # >list_of_pict< is global
     # global list_of_pict
 
-    quiet, do_calc_average_gray_level, do_make_rename_file = get_opts_args()
+    quiet, do_calc_calc_av_gray, do_make_rename_file = get_opts_args()
 
     initialize_list_of_picts()
 
@@ -1534,7 +1542,7 @@ if __name__ == '__main__':
         print "\n\n>" + batch_f_name + "< written. ", cnt_picts_to_rename, "files to rename\n"
         batch_file.close()
 
-    list_of_pict = picts_csv_read()
+    list_of_pict = csv_picts_read()
 
     cnt_jpg_files, cnt_valid_files = make_list_of_picts_via_EXIF()  # *.jpg files in directory
     cnt_valid_picts                = print_valid_picts_in_list()    # picts in list
@@ -1550,15 +1558,15 @@ if __name__ == '__main__':
     print ">", '{:4d}'.format(cnt_missing_picts),  "missing picts in list "
 
     # calc_model_type_picts()   # show number of picts for every camera model
-    # picts_csv_write(list_of_pict)
+    # csv_picts_write(list_of_pict)
 
     cnt_synthd_images = 0
     if do_synthesize_new_images:
         cnt_synthd_images = synthesize_missing_picts()
         cnt_valid_picts = print_valid_picts_in_list()  # picts in list
         print ">", '{:4d}'.format(cnt_valid_picts), " valid   picts in list "
-        picts_csv_write(list_of_pict)
-        list_of_pict = picts_csv_read()
+        csv_picts_write(list_of_pict)
+        list_of_pict = csv_picts_read()
 
     # test_EXIF_Tag(list_of_pict[0])
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
@@ -1568,12 +1576,17 @@ if __name__ == '__main__':
 
     if do_stitch_images:
         stitch_images()
-        picts_csv_write(list_of_pict)
+        csv_picts_write(list_of_pict)
 
-    if do_calc_average_gray_level or cnt_synthd_images:   # if no image changed, no calculation
-        calc_average_graylevel()
-        picts_csv_write(list_of_pict)
-        list_of_pict = picts_csv_read()
+    if do_calc_calc_av_gray or cnt_synthd_images:  # if no image changed, no calculation
+        calc_av_gray()
+        csv_picts_write(list_of_pict)
+        list_of_pict = csv_picts_read()
+
+    if do_calc_F2divTISO or cnt_synthd_images:   # if no image changed, no calculation
+        calc_F2divTISO()
+        csv_picts_write(list_of_pict)
+        list_of_pict = csv_picts_read()
 
     # print_all_picts_in_list()
     # picts_show_class_members(list_of_pict)
@@ -1581,17 +1594,23 @@ if __name__ == '__main__':
 
     if do_connect_with_DWD_data:
         connect_picts_with_DWD_data()
-        picts_csv_write(list_of_pict)
-        list_of_pict = picts_csv_read()
+        csv_picts_write(list_of_pict)
+        list_of_pict = csv_picts_read()
 
-    if do_calc_data_point_coord:  # if no image changed, no calculation
-        calc_data_point_coord()
-        picts_csv_write(list_of_pict)
-        list_of_pict = picts_csv_read()
+    data_fields = ['F2divTISO', 'av_gray', 'temperature', 'humidity', 'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
+
+    if (do_calc_data_point_coord or
+          do_calc_calc_av_gray or
+          do_calc_F2divTISO or
+          do_connect_with_DWD_data or
+          cnt_synthd_images) :
+        calc_pict_datapoint_coord(data_fields)
+        csv_picts_write(list_of_pict)
+        list_of_pict = csv_picts_read()
 
     if do_plot_data:
-        plot_data_via_svg()
+        plot_data_via_svg(data_fields)
 
-    # picts_csv_write(list_of_pict)
+    # csv_picts_write(list_of_pict)
 
     print "\n> end"
