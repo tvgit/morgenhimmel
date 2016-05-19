@@ -1055,7 +1055,7 @@ def stitch_images():
 
 def calc_data_point_coord():
     # task: in every single picture just show graphically for certain interesting parameters (temperature, humidity, av_gray ...)
-    # the value as points. THe height is indicating the normalized values.
+    # the value as points. The height is indicating the _normalized_ values.
     # So: for every parameter
     #     find the range (i.e. min, max)
     #     calculate correspondig datapoint.
@@ -1065,10 +1065,10 @@ def calc_data_point_coord():
     #   vals corresponding to lists containing the values of this field of all the pics (i.e. 'av_gray': [a1, a2, .. an]
     # We identify the corresponding min and max for every parameter;
     #
-    # Now we want to calculate the corresponding data point of every single specific value:
-    # lowest val  == lower border of pictuere + something ;
-    # highest val == higher border of pictuere - something ;
-    # Remember to scale according to the picture dimensions and the cale factor.
+    # Now we're going to calculate the corresponding _scaled_ data point of every single specific value:
+    # lowest val  == lower  border of picture + something ;
+    # highest val == higher border of pictere - something ;
+    # Remember: scaling is according to the picture dimensions and the scale factor.
     #
     quiet = True
     if not quiet:
@@ -1148,7 +1148,7 @@ def calc_data_point_coord():
                         print bcolors.FAIL + str(delta_y) + bcolors.ENDC
                     else:
                         print
-                setattr(pict, fieldname + '_y', img_y)      #
+                setattr(pict, fieldname + '_y', img_y)      # scaled and adjusted val as string
                 test_min_max.append(img_y)
         if not quiet:
             print
@@ -1172,11 +1172,13 @@ def mark_image_corners(dwg):
 
 
 def calc_plot_xy_coordinate(pict, val, x_bias, y_bias):
-    x_coord = int(pict.x_coord) + x_bias     # x-coordinate in result image
-    low_border = int(pict.y_coord) + y_pict  # y-coordinate of lower border of _pict_ (0,0 == left upper edge of pict!)
-    y_coord = low_border                 # lower border of image
-    y_coord = y_coord - y_bias           # adjusted lower limit of y-values
-    y_coord = y_coord - int(val)         # y-coordinate according value
+    # calc absolute x,y coordinates (in result image) of data point.
+    # val ==
+    x_coord    = int(pict.x_coord) + x_bias # x-coordinate in result image res_img
+    low_border = int(pict.y_coord) + y_pict # y-coordinate of lower border of _pict_ (0,0 == left upper edge of pict!)
+    y_coord    = low_border                 # lower border of image
+    y_coord    = y_coord - y_bias           # adjusted lower limit of y-values
+    y_coord    = y_coord - int(val)         # y-coordinate according value
     return (x_coord, y_coord)
 
 
@@ -1252,6 +1254,7 @@ def plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias,
     return dwg
 
 def ret_y_at_x_in_line_through_p1_p2(x, p1, p2):
+    # calc equation of line passing through p1 and p2; return y at x-coord
     dx = p2[0] - p1[0]
     dy = p2[1] - p1[1]
     m = float(dy) / dx
@@ -1269,6 +1272,11 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
 
     x_max = x_cnt_pct # global
     y_max = y_cnt_pct # global
+
+    # http://tutorials.jenkov.com/svg/marker-element.html (arrow as marker)
+    # https://pythonhosted.org/svgwrite/classes/marker.html
+    # marker = dwg.marker(insert=(5, 5), size=(10, 10), orient = 'auto')
+    # insert == (refX ,refY) size = (markerWidth, markerHeight)
 
     # radius = x_pict // 100
     list_of_pict.sort(key=attrgetter('datum'))
@@ -1288,23 +1296,49 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
                     print 'fieldname =', fieldname, 'cnt = ', "% 3d" % cnt, '   pict.datum =', pict.datum, 'x_cnt , y_cnt =', x_cnt, y_cnt,
                 val = getattr(pict, fieldname + '_y')  # get the value as string
                 if val:                                # is there a value in this category?
-                    if   (x_cnt == 0) and (y_cnt == 0):  # pict is on far left side and is not first pict.
+                    if (x_cnt == 0) and (y_cnt == 0):  # pict is on far left side and is not first pict.
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
                         p_1 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
                     elif (x_cnt == 0) and (y_cnt != 0):
-                        # pict is on far left side and is not first pict.
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
-                        # 1: draw right lines on far right pic on row above:
-                        p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
-                        p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)
+                        # pict is on far left side and is not first pict.
+                        #
+                        # 1) draw right lines on far right pic on row above:
+                        p_2  = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)       # pict: original coordinates
+                        p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)     # pict: moved to the outer right side of row above.
                         # straight cartesian_line: y = ax + b  with points p_1 and p_2b
-                        c_line = (0,0)
-                        x = int(pict.x_coord) + x_pict
-                        ret_y_at_x_in_line_through_p1_p2(x, p_1, p_2b)
+                        x = x_img_dim - 2 * border  # == right border of most right pict
+                        # calc equation of line passing through p1 and p2; return y at x-coord:
+                        p_2c = (x, ret_y_at_x_in_line_through_p1_p2(x, p_1, p_2b))
 
-                        line = dwg.line(start=p_1, end=p_2b, stroke=stroke_color, stroke_width=stroke_width)
+                        # draw svg line through p_1(x,y) and p_2c(x,y):
+                        line = dwg.line(start=p_1, end=p_2c, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
-                        # 1: draw left lines an far left pic (== actual pic)
+
+                        marker = dwg.marker(insert=(6, 5), size=(10, 10), orient='auto')
+                        marker.add(
+                            dwg.path("M2 2  L2 8  L8 5  L2 2", fill=stroke_color, stroke='black', stroke_width='0.1'))
+                        # marker.add(dwg.circle((5, 5), r=5, fill='red'))
+                        dwg.defs.add(marker)
+                        line['marker-end'] = marker.get_funciri()
+                        line = dwg.line(start=p_1, end=p_2c, stroke=stroke_color, stroke_width=stroke_width)
+                        dwg.add(line)
+                        #
+                        # 2) draw left lines an far left pic (== actual pic)
+                        p_2  = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)       # pict_2: original coordinates
+                        p_1b = (p_2[0] - x_pict - border, p_1[1] + y_pict + border)     # pict_1: moved to the outer left side of row above.
+                        x = 2 * border  # == left border of most left pict
+                        # calc equation of line passing through p1 and p2; return y at x-coord:
+                        p_1c = (x, ret_y_at_x_in_line_through_p1_p2(x, p_1b, p_2))
+                        # line.set_markers(marker)
+
+                        line = dwg.line(start=p_1c, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
+                        dwg.add(line)
+
+                        line['marker-end'] = marker.get_funciri()
+                        line = dwg.line(start=p_1c, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
+                        dwg.add(line)
+                        #
                         p_1 = p_2
                         # p_2  = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
                         # line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
@@ -1372,11 +1406,9 @@ def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, svg_dimensions, x
 def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
     # Plot data points via svg
     quiet = True
-    if not quiet:
-        print '>>> plot_via_svg_data_points() BEGIN'
+    if not quiet: print '>>> plot_via_svg_data_points() BEGIN'
 
     radius = x_pict // 100
-
     for pict in list_of_pict:
         if (pict.x_coord and pict.y_coord):
             for fieldname in fieldnames:  # for each category (temperature, humidity ...)
@@ -1384,7 +1416,6 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, svg_dimensions, 
                 if getattr(pict, fieldname):                 # is there a value in this category?
                     val = getattr(pict, fieldname + '_y')    # get the value as string
                     (x_circle, y_circle) = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
-
                     if not quiet:
                         y_top = int(pict.y_coord) + y_pict
                         print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
@@ -1432,8 +1463,7 @@ def plot_data_via_svg():
     svg_dimensions = x_img_dim, y_img_dim
     path_fn = make_result_path_fn('results', act_date_time_str() + 'img_data_points.svg')  # fn von data points file
     # initialize svg canvas 'dwg':
-    dwg = svgwrite.Drawing(path_fn, (svg_dimensions), profile='tiny', debug=True)
-    #
+    dwg = svgwrite.Drawing(path_fn, (svg_dimensions), profile='basic', debug=True)
     # x_bias  global
     # y_bias  global
     #
@@ -1463,7 +1493,6 @@ def plot_data_via_svg():
         print 'x * y = ', svg_dimensions
 
 
-
 #======================================================================
 
 do_make_rename_file        = False
@@ -1471,7 +1500,7 @@ do_synthesize_new_images   = False
 do_stitch_images           = False
 
 do_calc_average_gray_level = False
-do_connect_with_DWD_data   = True
+do_connect_with_DWD_data   = False
 
 do_calc_data_point_coord   = True
 do_plot_data               = True
