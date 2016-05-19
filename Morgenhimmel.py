@@ -95,7 +95,7 @@ border         = border // scale_factor
 x_pict         = x_pict_org // scale_factor # pixels on x-axis of single pict
 y_pict         = y_pict_org // scale_factor # pixels on y-axis of single pict
 
-x_bias         = x_pict // 10  # left  distance for data points in graphs     in picts (x axis)
+x_bias         = x_pict // 8   # left  distance for data points in graphs     in picts (x axis)
 y_bias         = y_pict // 10  # lower/higher limit for data points in graphs in picts (y axis)
 
 # img == result image
@@ -894,7 +894,7 @@ def calc_F2divTISO():
         image = Image.open(pict.path_fn).convert('L')
         if pict.Model != 'synthesized':
             pict.F2divTISO = int (float (pict.FNumber) * float(pict.FNumber) / ((float(pict.ExpoTime) * float(pict.ISOSpeed))))
-        print "\r  ", ': image # ', pict.fn, pict.ExpoTime, pict.ISOSpeed, ' F2divTISO = ', pict.F2divTISO
+        # print "\r  ", ': image # ', pict.fn, pict.ExpoTime, pict.ISOSpeed, ' F2divTISO = ', pict.F2divTISO
 
 
 def find_max_width_max_height_of_pict():
@@ -1152,9 +1152,8 @@ def calc_pict_datapoint_coord(data_fields):
     x_edge_high, y_edge_high = x_pict // 10 , y_pict - y_pict // 10
 
     test_min_max = []
-
-    y_bias = y_pict // 10
-
+    # x_bias  global
+    # y_bias  global
     for pict in list_of_pict:
         for fieldname in data_fields:
             # if dict_values[fieldname]:
@@ -1183,24 +1182,35 @@ def calc_pict_datapoint_coord(data_fields):
                         print
                 setattr(pict, fieldname + '_y', img_y)      # scaled and adjusted val as string
                 test_min_max.append(img_y)
+
+        for pict in list_of_pict:
+            for fieldname in data_fields:
+                # if dict_values[fieldname]:
+                if getattr(pict, fieldname):
+                    # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
+                    setattr(pict, fieldname + '_x', x_bias)  # scaled and adjusted val as string
         if not quiet:
             print
 
     if not quiet:
         print '>>> calc_pict_datapoint_coord() END'
-    # print min(test_min_max), max(test_min_max)
-
-
 
 
 def calc_img_datapoint_coord(pict, val_x, val_y):
     # calc x,y coordinates in result image of data point.
-    x_coord    = int(pict.x_coord) + int(val_x)  # x-coordinate in result image res_img
+    if val_x:
+        x_coord = int(pict.x_coord) + int(val_x)  # x-coordinate in result image res_img
+    else:
+        x_coord = int(pict.x_coord)
     #
     low_border = int(pict.y_coord) + y_pict # y-coordinate of lower border of _pict_ (0,0 == left upper edge of pict!)
     y_coord    = low_border                 # lower border of image
     y_coord    = y_coord - y_bias           # adjusted lower limit of y-values
-    y_coord    = y_coord - int(val_y)         # y-coordinate according value
+
+    if val_y:
+        y_coord    = y_coord - int(val_y)         # y-coordinate according value
+    else:
+        y_coord    = y_coord                      # y-coordinate according value
     return (x_coord, y_coord)
 
 
@@ -1282,7 +1292,7 @@ def ret_y_at_x_in_line_through_p1_p2(x, p1, p2):
     m = float(dy) / dx
     y = float(x - p1[0]) * m + p1[1]
     y = int(y)
-    print p1, p2, dx, dy, m, x, y
+    # print p1, p2, dx, dy, m, x, y
     return y
 
 
@@ -1381,51 +1391,6 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
     return dwg
 
 
-def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, x_bias, y_bias):
-    # connect data points with lines
-    quiet = True
-    if not quiet:
-        print '>>> plot_via_svg_data_lines() BEGIN'
-
-    x_max = x_cnt_pct # global
-    y_max = y_cnt_pct # global
-
-    # radius = x_pict // 100
-    list_of_pict.sort(key=attrgetter('datum'))
-
-    # we're moving along x-axis. For each field in fieldnames we look if correspondig data values exist.
-    # If so, connect data values of the adjacent picts. If you are at the far left side, there's nothing to draw.
-    p_1 = (0, 0)
-    p_2 = (0, 0)
-    stroke_width = 12
-    for fieldname in fieldnames:  # for each category (temperature, humidity ...)
-        stroke_color = field_color_dict[fieldname]
-        cnt = 0
-        for y_cnt in range (0, y_max):
-            for x_cnt in range(0, x_max):
-                pict = list_of_pict[cnt]                # next picture
-                if not quiet:
-                    print 'fieldname =', fieldname, 'cnt = ', "% 3d" % cnt, '   pict.datum =', pict.datum, 'x_cnt , y_cnt =', x_cnt, y_cnt,
-                val = getattr(pict, fieldname + '_y')  # get the value as string
-                if val:                                # is there a value in this category?
-                    if p_1 == (0, 0):                  # far left side??
-                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
-                        p_1 = calc_img_datapoint_coord(pict, x_bias)
-                    else:
-                        p_2 = calc_img_datapoint_coord(pict, x_bias)
-                        line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
-                        dwg.add(line)
-                        # draw_line (p1, p2)
-                        p_1 = p_2
-                if (x_cnt == x_max - 1):
-                    p_1 = 0, 0
-                cnt += 1
-                if not quiet:
-                    print p_1, p_2
-    if not quiet:
-        print '>>> plot_via_svg_data_lines() END'
-    return dwg
-
 def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     # Plot data points via svg
     quiet = True
@@ -1451,7 +1416,6 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
                             print
 
                     fill = field_color_dict[fieldname]
-                    # dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius, stroke='none', fill='purple', opacity='0.5'))
                     dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 4, stroke='none', fill='black',
                                        opacity='1.0'))
                     dwg.add(dwg.circle(center=(x_circle, y_circle), r=radius + 2, stroke='none', fill='white',
