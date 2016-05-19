@@ -55,11 +55,14 @@ import numpy as np
 from PIL import Image
 
 path_root       = "D:\Data_Work\Other_Data\_Morgen_Himmel"
-path_sub_pics   = "_Morgen_Himmel_alle_001"
-path_sub_DWD    = "Data_DWD"
+sub_dir_pics   = "_Morgen_Himmel_alle_001"
+sub_dir_DWD    = "Data_DWD"
 
 # just a little bit confusing those many interweaved paths:
-root_dir        = 'D:\Data_Work\Other_Data\_Morgen_Himmel\_Morgen_Himmel_alle_001'
+
+# path_picts        = 'D:\Data_Work\Other_Data\_Morgen_Himmel\_Morgen_Himmel_alle_001'
+path_picts        = os.path.join(path_root, sub_dir_pics)
+
 synth_image_dir = 'synth_images'
 synth_image_dir = ''
 
@@ -117,7 +120,7 @@ def usage(exit_status):
         sys.exit(exit_status)
 
 def get_opts_args():
-    global root_dir
+    global path_picts
     global quiet
     global do_calc_average_gray_level
     global do_make_rename_file
@@ -145,19 +148,19 @@ def get_opts_args():
         if o in ("-h", "--help"):
             usage(0)
 
-    if not root_dir:
-        root_dir = '.'
+    if not path_picts:
+        path_picts = '.'
 
     if not quiet:
-        print 'root_dir: >' + root_dir + '<'
-    if not os.path.isdir(root_dir):
-        print 'Directory >' + root_dir + '< does not exist.'
+        print 'path_picts: >' + path_picts + '<'
+    if not os.path.isdir(path_picts):
+        print 'Directory >' + path_picts + '< does not exist.'
         sys.exit(2)
 
     if do_make_rename_file:
         try:
             batch_f_name = 'rename_photos.bat'
-            batch_f_name = os.path.join(root_dir, batch_f_name)
+            batch_f_name = os.path.join(path_picts, batch_f_name)
             batch_file = open(batch_f_name, 'wb')
         except:
             print "'%s' is unwritable\n" % batch_f_name
@@ -195,6 +198,7 @@ class PictClass(object):
             self.ExpoTime     = ''
             self.ISOSpeed     = ''
             self.ISOSpeed_str = ''
+            self.F2divTISO    = '' # (FNumber*FNumber)/(Expo-time * ISO)  # calculated value == val
             self.av_gray      = '-999.0'                 # measured value == val
             self.temperature  = ''                       # measured value == val
             self.humidity     = ''                       # measured value == val
@@ -202,13 +206,17 @@ class PictClass(object):
             self.global_KW_J  = '' #GLOBAL_KW_J          # measured value == val
             self.atmo_KW_J    = '' #ATMOSPHAERE_LW_J     # measured value == val
             self.sun_zenit    = '' #SONNENZENIT          # measured value == val
+
+            self.F2divTISO_x  = '' # (FNumber*FN ...     # x-value on graph in pict
             self.av_gray_x    = str(x_bias)              # x-value on graph in pict
             self.temperature_x= str(x_bias)              # x-value on graph in pict
             self.humidity_x   = str(x_bias)              # x-value on graph in pict
             self.sky_KW_J_x   = str(x_bias) #HIMMEL_KW_J # x-value on graph in pict
             self.global_KW_J_x= str(x_bias) #GLOBAL_KW_J # x-value on graph in pict
-            self.atmo_KW_J_x  = str(x_bias) #ATMOSPHAERE_LW_J # x-value on graph in pict
+            self.atmo_KW_J_x  = str(x_bias) #ATMOSPH ..._# x-value on graph in pict
             self.sun_zenit_x  = str(x_bias) #SONNENZENIT # x-value on graph in pict
+
+            self.F2divTISO_y  = '' # (FNumber*FNu ....   # measured value as string
             self.av_gray_y    = ''                       # measured value as string
             self.temperature_y= ''                       # measured value as string
             self.humidity_y   = ''                       # measured value as string
@@ -217,8 +225,8 @@ class PictClass(object):
             self.atmo_KW_J_y  = '' #ATMOSPHAERE_LW_J     # measured value as string
             self.sun_zenit_y  = '' #SONNENZENIT          # measured value as string
 
-            self.x_coord      = '' # x_coord in result_image
-            self.y_coord      = '' # y_coord in result_image
+            self.x_coord      = '' # x_coord (left lower corner) in result_image
+            self.y_coord      = '' # y_coord (left lower corner) in result_image
             # self.xxxxxxx     = ''
             # self.xxxxxxx     = ''
 
@@ -247,6 +255,8 @@ class PictClass(object):
         self.ExpoTime     ,
         self.ISOSpeed     ,
         self.ISOSpeed_str ,
+
+        self.F2divTISO    ,
         self.av_gray      ,
         self.temperature  ,
         self.humidity     ,
@@ -254,6 +264,8 @@ class PictClass(object):
         self.global_KW_J  ,
         self.atmo_KW_J    ,
         self.sun_zenit    ,
+
+        self.F2divTISO_x  ,
         self.av_gray_x    ,
         self.temperature_x,
         self.humidity_x   ,
@@ -261,6 +273,8 @@ class PictClass(object):
         self.global_KW_J_x,
         self.atmo_KW_J_x  ,
         self.sun_zenit_x  ,
+
+        self.F2divTISO_y  ,
         self.av_gray_y    ,
         self.temperature_y,
         self.humidity_y   ,
@@ -279,9 +293,9 @@ class PictClass(object):
         "FNumber_str" , "FNumber",
         "ExpoTime_str", "ExpoTime",
         "ISOSpeed", "ISOSpeed_str",
-        "av_gray",   "temperature",   "humidity",   "sky_KW_J",   "global_KW_J",   "atmo_KW_J",   "sun_zenit",
-        "av_gray_x", "temperature_x", "humidity_x", "sky_KW_J_x", "global_KW_J_x", "atmo_KW_J_x", "sun_zenit_x",
-        "av_gray_y", "temperature_y", "humidity_y", "sky_KW_J_y", "global_KW_J_y", "atmo_KW_J_y", "sun_zenit_y",
+        "F2divTISO",   "av_gray",   "temperature",   "humidity",   "sky_KW_J",   "global_KW_J",   "atmo_KW_J",   "sun_zenit",
+        "F2divTISO_x", "av_gray_x", "temperature_x", "humidity_x", "sky_KW_J_x", "global_KW_J_x", "atmo_KW_J_x", "sun_zenit_x",
+        "F2divTISO_y", "av_gray_y", "temperature_y", "humidity_y", "sky_KW_J_y", "global_KW_J_y", "atmo_KW_J_y", "sun_zenit_y",
         "x_coord", "y_coord"
         ]
 
@@ -395,7 +409,7 @@ def make_list_of_picts_via_EXIF():
     reg_YMDHm = make_regex_YMDHm_word()#
     # reg_YYYY_MM_DD_hhmm = re.compile(r"^\d{4}_[A-Za-z]")  #
     cnt_jpg_picts = 0
-    root, dirs, files = os.walk(root_dir).next()  # only first level
+    root, dirs, files = os.walk(path_picts).next()  # only first level
     for f_name in files:  # only files, not subdirs
         Y_M_D_prefix = 'Y_M_D_prefix_?'
         path_f_name = os.path.join(root, f_name)
@@ -509,7 +523,7 @@ def make_list_of_picts_via_EXIF():
     return cnt_jpg_picts, cnt_valid_picts
 
 def make_result_path_fn (dir, fn):
-    return os.path.join(root_dir,dir, fn)
+    return os.path.join(path_picts, dir, fn)
 
 def act_date_time_str():
     now = datetime.datetime.now()
@@ -546,8 +560,8 @@ def picts_csv_read():
     #
     # there are a lot of result files >YYYY_MM_DD_mm_result.csv< in the result dir => find the most recent one.
     reg_YMDHm_pict = make_regex_YMDHm_pict()#
-    # os.path.join(root_dir, dir, fn)
-    results_dir = os.path.join(root_dir, 'results', '')
+    # os.path.join(path_picts, dir, fn)
+    results_dir = os.path.join(path_picts, 'results', '')
     root, dirs, files = os.walk(results_dir).next()  # only first level
     result_files = []
     for f_name in files:  # only files, not subdirs
@@ -560,7 +574,7 @@ def picts_csv_read():
             # print
 
     fn = max(result_files)  # most recent result file (>YYYY_MM_DD_mm_result.csv<).
-    result_fn = os.path.join(root_dir, 'results', fn)
+    result_fn = os.path.join(path_picts, 'results', fn)
     print '\n', 'Reading data from: \n>', result_fn
     #
     cnt = 0
@@ -633,10 +647,10 @@ def adjust_EXIF_tags(pict):
 
 def test_EXIF_Tag(pict):
     # path_root = "D:\Data_Work\Other_Data\_Morgen_Himmel\"
-    # path_sub_pics = "_Morgen_Himmel_alle_001"
+    # sub_dir_pics = "_Morgen_Himmel_alle_001"
     # l_path = "D:\Data_Work\Other_Data\_Morgen_Himmel\_Morgen_Himmel_alle_001"
     l_fn   = "2013_04_07_1222_IMG_2553_01.JPG"
-    pict.path_fn = os.path.join(path_root, path_sub_pics, l_fn)
+    pict.path_fn = os.path.join(path_root, sub_dir_pics, l_fn)
     print 'test_EXIF_Tag: ', pict.path_fn
     exif_dict = piexif.load(pict.path_fn)  # EXIF data as dictionary ...     (can not be written in file)
     exif_bytes = piexif.dump(exif_dict)    # transformed in byte - data. ... (can     be written in file)
@@ -713,20 +727,20 @@ def calc_model_type_picts():
     return list_model_cnt
 
 def synthesize_image_and_save_it(pict_new, pict_1, pict_2, pict_3):
-    im = Image.open(os.path.join(root_dir, pict_1.fn))
+    im = Image.open(os.path.join(path_picts, pict_1.fn))
     red, g, b = im.split()
     im.close()
-    im = Image.open(os.path.join(root_dir, pict_2.fn))
+    im = Image.open(os.path.join(path_picts, pict_2.fn))
     r, green, b = im.split()
     im.close()
-    im = Image.open(os.path.join(root_dir, pict_3.fn))
+    im = Image.open(os.path.join(path_picts, pict_3.fn))
     r, g, blue = im.split()
     im.close()
 
     # img = Image.merge("RGB", (red, green, blue))
     attenuated_red = red.point(lambda i: i * 0.85)      # attenuate red channel
     img = Image.merge("RGB", (attenuated_red, green, blue))
-    img.save((os.path.join(root_dir, synth_image_dir, pict_new.fn)))
+    img.save((os.path.join(path_picts, synth_image_dir, pict_new.fn)))
 
 def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     # used lists are global. values are strings or corresponding floats
@@ -811,7 +825,7 @@ def synthesize_missing_picts():
     list_of_pict.sort(key=attrgetter('Model', 'datum'))        # sort in place
 
     log_fn = 'new_images_test.log'                                      # log filename
-    log_f  = open(os.path.join(root_dir, synth_image_dir, log_fn), 'w') # log file in sub dir
+    log_f  = open(os.path.join(path_picts, synth_image_dir, log_fn), 'w') # log file in sub dir
 
     cnt_synthd_images = 0
     for pict in list_of_pict:
@@ -834,7 +848,7 @@ def synthesize_missing_picts():
             # synthesize image, save it:
             synthesize_image_and_save_it(pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
             # adjust >path_fn< in >pict< object
-            pict_to_synth.path_fn = (os.path.join(root_dir, synth_image_dir, pict.fn))
+            pict_to_synth.path_fn = (os.path.join(path_picts, synth_image_dir, pict.fn))
             # adjust EXIF Make tag in jpeg-file (!) to :'synthesized'
             adjust_EXIF_tags(pict_to_synth)
             # inc counter
@@ -899,7 +913,7 @@ def connect_picts_with_DWD_data():
     # temperature, humidity:
 
     DWD_data_file_fn = "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
-    DWD_data_path_fn = os.path.join(path_root, path_sub_DWD, DWD_data_file_fn)
+    DWD_data_path_fn = os.path.join(path_root, sub_dir_DWD, DWD_data_file_fn)
     # print DWD_data_path_fn
     data_list  = []   # == whole line of input file
     time_list  = []   # == timestamp  of input file
@@ -932,7 +946,7 @@ def connect_picts_with_DWD_data():
     # -----------------------------------------------------------------------------------------------
     # DIFFUS_HIMMEL_KW_J, GLOBAL_KW_J, ATMOSPHAERE_LW_J:
     DWD_data_file_fn = "Data_Solar\produkt_strahlung_Stundenwerte_19610101_20160331_05404_reduced.txt"
-    DWD_data_path_fn = os.path.join(path_root, path_sub_DWD, DWD_data_file_fn)
+    DWD_data_path_fn = os.path.join(path_root, sub_dir_DWD, DWD_data_file_fn)
     # print DWD_data_path_fn
     data_list = []  # == whole line of input file
     time_list = []  # == timestamp  of input file
@@ -1171,18 +1185,18 @@ def mark_image_corners(dwg):
     return dwg
 
 
-def calc_plot_xy_coordinate(pict, val, x_bias, y_bias):
-    # calc absolute x,y coordinates (in result image) of data point.
-    # val ==
-    x_coord    = int(pict.x_coord) + x_bias # x-coordinate in result image res_img
+def img_datapoint_xy_coordinate(pict, val_x, val_y):
+    # calc x,y coordinates in result image of data point.
+    x_coord    = int(pict.x_coord) + int(val_x)  # x-coordinate in result image res_img
+    #
     low_border = int(pict.y_coord) + y_pict # y-coordinate of lower border of _pict_ (0,0 == left upper edge of pict!)
     y_coord    = low_border                 # lower border of image
     y_coord    = y_coord - y_bias           # adjusted lower limit of y-values
-    y_coord    = y_coord - int(val)         # y-coordinate according value
+    y_coord    = y_coord - int(val_y)         # y-coordinate according value
     return (x_coord, y_coord)
 
 
-def plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
+def plot_via_svg_text(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     # connect data points with lines
     quiet = True
     if not quiet:
@@ -1208,7 +1222,7 @@ def plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias,
         for y_cnt in range (0, y_max):
             for x_cnt in range(0, x_max):
                 pict = list_of_pict[cnt]                # next picture
-                pos_text = calc_plot_xy_coordinate(pict, delta_y, x_bias, y_bias )
+                pos_text = img_datapoint_xy_coordinate(pict, x_bias, y_bias + delta_y)
                 if not quiet:
                     print 'fieldname =', fieldname, ' pict.datum =', pict.datum, 'x, y =', pos_text
                 # dwg.text(fieldname, insert=pos_text, fill=text_color, style="font-size:40px; font-family:Arial")
@@ -1239,12 +1253,12 @@ def plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias,
                 text_color = "red"
 
             text_color = "aqua"
-            pos_text = calc_plot_xy_coordinate(pict, delta_y, x_bias, y_bias)
+            pos_text = img_datapoint_xy_coordinate(pict, x_bias, y_bias + delta_y)
             text = dwg.text(pict.datum, insert=pos_text, fill=text_color, font_family='sans-serif', font_size=font_size)
             dwg.add(text)
 
             if model == "synthesized": text_color = "red"
-            pos_text = calc_plot_xy_coordinate(pict, delta_y, x_bias, y_bias + delta_y)
+            pos_text = img_datapoint_xy_coordinate(pict, x_bias, y_bias)
             text = dwg.text(model     , insert=pos_text, fill=text_color, font_family='sans-serif', font_size=font_size)
             dwg.add(text)
             cnt += 1
@@ -1264,7 +1278,7 @@ def ret_y_at_x_in_line_through_p1_p2(x, p1, p2):
     return y
 
 
-def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
+def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     # connect data points with lines expanding lines on the far left and far right side.
     quiet = True
     if not quiet:
@@ -1294,17 +1308,18 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
                 pict = list_of_pict[cnt]                # next picture
                 if not quiet:
                     print 'fieldname =', fieldname, 'cnt = ', "% 3d" % cnt, '   pict.datum =', pict.datum, 'x_cnt , y_cnt =', x_cnt, y_cnt,
-                val = getattr(pict, fieldname + '_y')  # get the value as string
-                if val:                                # is there a value in this category?
+                val_y = getattr(pict, fieldname + '_y')  # get the value as string
+                val_x = getattr(pict, fieldname + '_x')  # get the value as string
+                if val_y:                                # is there a value in this category?
                     if (x_cnt == 0) and (y_cnt == 0):  # pict is on far left side and is not first pict.
-                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
-                        p_1 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
+                        p_1 = img_datapoint_xy_coordinate(pict, val_x, val_y)
                     elif (x_cnt == 0) and (y_cnt != 0):
-                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
+                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
                         # pict is on far left side and is not first pict.
                         #
                         # 1) draw right lines on far right pic on row above:
-                        p_2  = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)       # pict: original coordinates
+                        p_2  = img_datapoint_xy_coordinate(pict, val_x, val_y)  # pict: original coordinates
                         p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)     # pict: moved to the outer right side of row above.
                         # straight cartesian_line: y = ax + b  with points p_1 and p_2b
                         x = x_img_dim - 2 * border  # == right border of most right pict
@@ -1325,7 +1340,7 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
                         dwg.add(line)
                         #
                         # 2) draw left lines an far left pic (== actual pic)
-                        p_2  = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)       # pict_2: original coordinates
+                        p_2  = img_datapoint_xy_coordinate(pict, val_x, val_y)  # pict_2: original coordinates
                         p_1b = (p_2[0] - x_pict - border, p_1[1] + y_pict + border)     # pict_1: moved to the outer left side of row above.
                         x = 2 * border  # == left border of most left pict
                         # calc equation of line passing through p1 and p2; return y at x-coord:
@@ -1340,11 +1355,11 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
                         dwg.add(line)
                         #
                         p_1 = p_2
-                        # p_2  = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                        # p_2  = img_datapoint_xy_coordinate(pict, val_y)
                         # line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         # dwg.add(line)
                     else:
-                        p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                        p_2 = img_datapoint_xy_coordinate(pict, val_x, val_y)
                         line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
                         p_1 = p_2
@@ -1358,7 +1373,7 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dim
     return dwg
 
 
-def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
+def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     # connect data points with lines
     quiet = True
     if not quiet:
@@ -1387,9 +1402,9 @@ def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, svg_dimensions, x
                 if val:                                # is there a value in this category?
                     if p_1 == (0, 0):                  # far left side??
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val =',  val
-                        p_1 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                        p_1 = img_datapoint_xy_coordinate(pict, x_bias)
                     else:
-                        p_2 = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                        p_2 = img_datapoint_xy_coordinate(pict, x_bias)
                         line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
                         # draw_line (p1, p2)
@@ -1403,7 +1418,7 @@ def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, svg_dimensions, x
         print '>>> plot_via_svg_data_lines() END'
     return dwg
 
-def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias):
+def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     # Plot data points via svg
     quiet = True
     if not quiet: print '>>> plot_via_svg_data_points() BEGIN'
@@ -1414,8 +1429,9 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, svg_dimensions, 
             for fieldname in fieldnames:  # for each category (temperature, humidity ...)
                 # if dict_values[fieldname]:
                 if getattr(pict, fieldname):                 # is there a value in this category?
-                    val = getattr(pict, fieldname + '_y')    # get the value as string
-                    (x_circle, y_circle) = calc_plot_xy_coordinate(pict, val, x_bias, y_bias)
+                    val_y = getattr(pict, fieldname + '_y')    # get the value as string
+                    val_x = getattr(pict, fieldname + '_x')    # get the value as string
+                    (x_circle, y_circle) = img_datapoint_xy_coordinate(pict, val_x, val_y)
                     if not quiet:
                         y_top = int(pict.y_coord) + y_pict
                         print pict.datum, pict.x_coord, pict.y_coord, "% 12s" % fieldname,
@@ -1479,12 +1495,12 @@ def plot_data_via_svg():
     # Forcing svgwrite to set dimensions to svg_size_width x svg_size_height:
     dwg = mark_image_corners(dwg)
     # Plot lines
-    # dwg = plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias)
-    dwg = plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias)
+    # dwg = plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, x_bias, y_bias)
+    dwg = plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias, y_bias)
     # Plot data points
-    dwg = plot_via_svg_data_points(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias)
+    dwg = plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias)
     #  Plot data legend
-    plot_via_svg_text(dwg, fieldnames, field_color_dict, svg_dimensions, x_bias, y_bias)
+    plot_via_svg_text(dwg, fieldnames, field_color_dict, x_bias, y_bias)
     #
     dwg.save()
     #
