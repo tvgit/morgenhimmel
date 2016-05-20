@@ -874,27 +874,18 @@ def synthesize_missing_picts():
         return cnt_synthd_images
 
 
-def calc_av_gray():
-    # print '>>>>>>>> calc_av_gray():'
-    list_of_pict.sort(key = attrgetter('datum'))
-    cnt = 0
-    for pict in list_of_pict:
-        image = Image.open(pict.path_fn).convert('L')
-        im_np_array  = np.array(image)
-        pict.av_gray = "{:.2f}".format(np.average(im_np_array))  # "{:.9f}".format(numvar)
-        if not quiet:
-            cnt += 1
-            print "\r  ", cnt, ': image # ', pict.fn, ' gray level = ', pict.av_gray
+def reduce_image_resolution():
+    global x_pict  # pixels on x-axis of single pict
+    global y_pict  # pixels on y-axis of single pict
 
-
-def calc_F2divTISO():
-    # print '>>>>>>>> F2divTISO():'
-    list_of_pict.sort(key = attrgetter('datum'))
+    list_of_pict.sort(key=attrgetter('datum'))
     for pict in list_of_pict:
-        image = Image.open(pict.path_fn).convert('L')
-        if pict.Model != 'synthesized':
-            pict.F2divTISO = int (float (pict.FNumber) * float(pict.FNumber) / ((float(pict.ExpoTime) * float(pict.ISOSpeed))))
-        # print "\r  ", ': image # ', pict.fn, pict.ExpoTime, pict.ISOSpeed, ' F2divTISO = ', pict.F2divTISO
+        img = Image.open(pict.path_fn)
+        fn  = make_result_path_fn('resized_3', pict.fn)
+        print 'resizing: ', fn,
+        img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
+        img_resized.save(fn)
+        print ' done.'
 
 
 def find_max_width_max_height_of_pict():
@@ -915,105 +906,6 @@ def find_max_width_max_height_of_pict():
     print '\n{:4d}'.format(cnt), 'images:', 'max_width = ', max_width, 'max_height = ', max_height
     print '            ', 'min_width = ', min_width, 'min_height = ', min_height
     return max_width, max_height
-
-def connect_picts_with_DWD_data():
-    # connect pict to temperature, humidity, cloudiness, ....
-    print '>>> connect_picts_with_DWD_data() BEGIN '
-    # -----------------------------------------------------------------------------------------------
-
-    # temperature, humidity:
-    DWD_data_file_fn = "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
-    DWD_data_path_fn = os.path.join(path_root, sub_dir_DWD, DWD_data_file_fn)
-    # print DWD_data_path_fn
-    data_list  = []   # == whole line of input file
-    time_list  = []   # == timestamp  of input file
-    val_1_list = []   # == data_value #4 of input file, i.e. temperature
-    val_2_list = []   # == data_value #5 of input file, i.e. humidity
-    # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; LUFTTEMPERATUR;REL_FEUCHTE;eor
-    # read all present lines; store in various lists the items of interest
-    with open(DWD_data_path_fn) as data_f:
-        for line in data_f:
-            data_list.append (line)                       # whole line of data-file
-            time_list.append (long(line.split(';')[1]))   # timestamp   == second row
-            val_1_list.append(float(line.split(';')[4]))  # temperature at this timestamp
-            val_2_list.append(float(line.split(';')[5]))  # humidity    at this timestamp
-
-    list_of_pict.sort(key = attrgetter('datum'))
-    for pict in list_of_pict:
-        pict_time_long = long (pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
-        # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
-        # for ervery day we have various timestamps an corresponding measured data point
-        # find the nearest timestamp (relative to time of photograph) an the corresponding data point:
-        list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
-        delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
-        if not quiet:
-            print "time_list[idx] =", time_list[idx], "delta_t =", delta_t, # "idx =", idx,
-            print "temperature =", val_1_list[idx],
-            print "humidity =",    val_2_list[idx]
-        pict.temperature = val_1_list[idx]
-        pict.humidity    = val_2_list[idx]
-
-    # -----------------------------------------------------------------------------------------------
-    # DIFFUS_HIMMEL_KW_J, GLOBAL_KW_J, ATMOSPHAERE_LW_J:
-    DWD_data_file_fn = "Data_Solar\produkt_strahlung_Stundenwerte_19610101_20160331_05404_reduced.txt"
-    DWD_data_path_fn = os.path.join(path_root, sub_dir_DWD, DWD_data_file_fn)
-    # print DWD_data_path_fn
-    data_list = []  # == whole line of input file
-    time_list = []  # == timestamp  of input file
-    val_1_list = [] # == data_value #3 of input file, DIFFUS_HIMMEL_KW_J
-    val_2_list = [] # == data_value #4 of input file, GLOBAL_KW_J
-    val_3_list = [] # == data_value #5 of input file, ATMOSPHAERE_LW_J
-    val_4_list = [] # == data_value #6 of input file, SONNENZENIT
-    # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; SONNENSCHEINDAUER;DIFFUS_HIMMEL_KW_J;GLOBAL_KW_J;ATMOSPHAERE_LW_J;SONNENZENIT;MESS_DATUM_WOZ;eor
-    with open(DWD_data_path_fn) as data_f:
-        for line in data_f:
-            data_list.append(line)                        # whole line of data-file
-            time_list.append(long(line.split(';')[1][:10]))    # timestamps  == second row
-            val_1_list.append(float(line.split(';')[3]))  # DIFFUS_HIMMEL_KW_J
-            val_2_list.append(float(line.split(';')[4]))  # GLOBAL_KW_J
-            val_3_list.append(float(line.split(';')[5]))  # ATMOSPHAERE_LW_J
-            val_4_list.append(float(line.split(';')[6]))  # SONNENZENIT
-
-    list_of_pict.sort(key=attrgetter('datum'))
-    for pict in list_of_pict:
-        pict_time_long = long(pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
-        # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
-        # Again: for every day we have various timestamps an corresponding measured data point
-        # find the nearest timestamp (relative to time of photograph) an the corresponding data point:
-        list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
-        delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
-        if not quiet:
-            print "time_list[idx] =", time_list[idx], # "delta_t =", delta_t,  "idx =", idx,
-            print "HIMMEL_KW_J =", val_1_list[idx],
-            print "GLOBAL_KW_J =", val_2_list[idx],
-            print "ATMOSPHAERE_LW_J =", val_3_list[idx],
-            print "SONNENZENIT =", val_4_list[idx]
-
-        pict.sky_KW_J    = val_1_list[idx]
-        pict.global_KW_J = val_2_list[idx]
-        pict.atmo_KW_J   = val_3_list[idx]
-        pict.sun_zenit   = val_4_list[idx]
-
-        if pict.global_KW_J == -999.0:
-            pict.global_KW_J = ''
-        if pict.sun_zenit == -999.0:
-            pict.sun_zenit = ''
-
-    print '>>> connect_picts_with_DWD_data() END '
-
-
-def reduce_image_resolution():
-    global x_pict  # pixels on x-axis of single pict
-    global y_pict  # pixels on y-axis of single pict
-
-    list_of_pict.sort(key=attrgetter('datum'))
-    for pict in list_of_pict:
-        img = Image.open(pict.path_fn)
-        fn  = make_result_path_fn('resized_3', pict.fn)
-        print 'resizing: ', fn,
-        img_resized = img.resize((x_pict, y_pict), Image.ANTIALIAS)
-        img_resized.save(fn)
-        print ' done.'
 
 
 def stitch_images():
@@ -1085,6 +977,127 @@ def mark_image_corners(dwg):
     dwg.add(dwg.circle(center = lower_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
     dwg.add(dwg.circle(center = lower_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
     return dwg
+
+def mark_pict_corners(dwg, ul, ur, ll, lr):
+    test_r = 5
+    upper_left_corner  = (ul)
+    upper_right_corner = (ur)
+    lower_left_corner  = (ll)
+    lower_right_corner = (lr)
+    dwg.add(dwg.circle(center = upper_left_corner,  r=test_r, stroke='none', fill='black', opacity='1.0'))
+    dwg.add(dwg.circle(center = upper_right_corner, r=test_r, stroke='none', fill='black', opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_left_corner,  r=test_r, stroke='none', fill='black', opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_right_corner, r=test_r, stroke='none', fill='black', opacity='1.0'))
+    return dwg
+
+
+def connect_picts_with_DWD_data():
+    # connect pict to temperature, humidity, cloudiness, ....
+    print '>>> connect_picts_with_DWD_data() BEGIN '
+    # -----------------------------------------------------------------------------------------------
+
+    # temperature, humidity:
+    DWD_data_file_fn = "Data_Temperature\produkt_temp_Terminwerte_19970701_20151231_03379_reduced.txt"
+    DWD_data_path_fn = os.path.join(path_root, sub_dir_DWD, DWD_data_file_fn)
+    # print DWD_data_path_fn
+    data_list = []  # == whole line of input file
+    time_list = []  # == timestamp  of input file
+    val_1_list = []  # == data_value #4 of input file, i.e. temperature
+    val_2_list = []  # == data_value #5 of input file, i.e. humidity
+    # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; STRUKTUR_VERSION; LUFTTEMPERATUR;REL_FEUCHTE;eor
+    # read all present lines; store in various lists the items of interest
+    with open(DWD_data_path_fn) as data_f:
+        for line in data_f:
+            data_list.append(line)  # whole line of data-file
+            time_list.append(long(line.split(';')[1]))  # timestamp   == second row
+            val_1_list.append(float(line.split(';')[4]))  # temperature at this timestamp
+            val_2_list.append(float(line.split(';')[5]))  # humidity    at this timestamp
+
+    list_of_pict.sort(key=attrgetter('datum'))
+    for pict in list_of_pict:
+        pict_time_long = long(pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
+        # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
+        # for ervery day we have various timestamps an corresponding measured data point
+        # find the nearest timestamp (relative to time of photograph) an the corresponding data point:
+        list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
+        delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
+        if not quiet:
+            print "time_list[idx] =", time_list[idx], "delta_t =", delta_t,  # "idx =", idx,
+            print "temperature =", val_1_list[idx],
+            print "humidity =", val_2_list[idx]
+        pict.temperature = val_1_list[idx]
+        pict.humidity = val_2_list[idx]
+
+    # -----------------------------------------------------------------------------------------------
+    # DIFFUS_HIMMEL_KW_J, GLOBAL_KW_J, ATMOSPHAERE_LW_J:
+    DWD_data_file_fn = "Data_Solar\produkt_strahlung_Stundenwerte_19610101_20160331_05404_reduced.txt"
+    DWD_data_path_fn = os.path.join(path_root, sub_dir_DWD, DWD_data_file_fn)
+    # print DWD_data_path_fn
+    data_list = []  # == whole line of input file
+    time_list = []  # == timestamp  of input file
+    val_1_list = []  # == data_value #3 of input file, DIFFUS_HIMMEL_KW_J
+    val_2_list = []  # == data_value #4 of input file, GLOBAL_KW_J
+    val_3_list = []  # == data_value #5 of input file, ATMOSPHAERE_LW_J
+    val_4_list = []  # == data_value #6 of input file, SONNENZENIT
+    # STATIONS_ID; MESS_DATUM; QUALITAETS_NIVEAU; SONNENSCHEINDAUER;DIFFUS_HIMMEL_KW_J;GLOBAL_KW_J;ATMOSPHAERE_LW_J;SONNENZENIT;MESS_DATUM_WOZ;eor
+    with open(DWD_data_path_fn) as data_f:
+        for line in data_f:
+            data_list.append(line)  # whole line of data-file
+            time_list.append(long(line.split(';')[1][:10]))  # timestamps  == second row
+            val_1_list.append(float(line.split(';')[3]))  # DIFFUS_HIMMEL_KW_J
+            val_2_list.append(float(line.split(';')[4]))  # GLOBAL_KW_J
+            val_3_list.append(float(line.split(';')[5]))  # ATMOSPHAERE_LW_J
+            val_4_list.append(float(line.split(';')[6]))  # SONNENZENIT
+
+    list_of_pict.sort(key=attrgetter('datum'))
+    for pict in list_of_pict:
+        pict_time_long = long(pict.fn[0:4] + pict.fn[5:7] + pict.fn[8:10] + pict.fn[11:13])
+        # print "pict.datum =", pict.datum, " pict_time =", pict_time_long,
+        # Again: for every day we have various timestamps an corresponding measured data point
+        # find the nearest timestamp (relative to time of photograph) an the corresponding data point:
+        list_delta_tempTime = list(abs(x - pict_time_long) for x in time_list)
+        delta_t, idx = min((val, idx) for (idx, val) in enumerate(list_delta_tempTime))
+        if not quiet:
+            print "time_list[idx] =", time_list[idx],  # "delta_t =", delta_t,  "idx =", idx,
+            print "HIMMEL_KW_J =", val_1_list[idx],
+            print "GLOBAL_KW_J =", val_2_list[idx],
+            print "ATMOSPHAERE_LW_J =", val_3_list[idx],
+            print "SONNENZENIT =", val_4_list[idx]
+
+        pict.sky_KW_J = val_1_list[idx]
+        pict.global_KW_J = val_2_list[idx]
+        pict.atmo_KW_J = val_3_list[idx]
+        pict.sun_zenit = val_4_list[idx]
+
+        if pict.global_KW_J == -999.0:
+            pict.global_KW_J = ''
+        if pict.sun_zenit == -999.0:
+            pict.sun_zenit = ''
+
+    print '>>> connect_picts_with_DWD_data() END '
+
+
+def calc_av_gray():
+    # print '>>>>>>>> calc_av_gray():'
+    list_of_pict.sort(key = attrgetter('datum'))
+    cnt = 0
+    for pict in list_of_pict:
+        image = Image.open(pict.path_fn).convert('L')
+        im_np_array  = np.array(image)
+        pict.av_gray = "{:.2f}".format(np.average(im_np_array))  # "{:.9f}".format(numvar)
+        if not quiet:
+            cnt += 1
+            print "\r  ", cnt, ': image # ', pict.fn, ' gray level = ', pict.av_gray
+
+
+def calc_F2divTISO():
+    # print '>>>>>>>> F2divTISO():'
+    list_of_pict.sort(key = attrgetter('datum'))
+    for pict in list_of_pict:
+        image = Image.open(pict.path_fn).convert('L')
+        if pict.Model != 'synthesized':
+            pict.F2divTISO = int (float (pict.FNumber) * float(pict.FNumber) / ((float(pict.ExpoTime) * float(pict.ISOSpeed))))
+        # print "\r  ", ': image # ', pict.fn, pict.ExpoTime, pict.ISOSpeed, ' F2divTISO = ', pict.F2divTISO
 
 
 def calc_pict_datapoint_coord(data_fields):
@@ -1191,7 +1204,6 @@ def calc_pict_datapoint_coord(data_fields):
                     setattr(pict, fieldname + '_x', x_bias)  # scaled and adjusted val as string
         if not quiet:
             print
-
     if not quiet:
         print '>>> calc_pict_datapoint_coord() END'
 
@@ -1204,8 +1216,8 @@ def calc_img_datapoint_coord(pict, val_x, val_y):
         x_coord = int(pict.x_coord)
     #
     low_border = int(pict.y_coord) + y_pict # y-coordinate of lower border of _pict_ (0,0 == left upper edge of pict!)
-    y_coord    = low_border                 # lower border of image
-    y_coord    = y_coord - y_bias           # adjusted lower limit of y-values
+    # y_coord    = low_border                 # lower border of image
+    y_coord    = low_border - y_bias        # adjusted lower limit of y-values
 
     if val_y:
         y_coord    = y_coord - int(val_y)         # y-coordinate according value
@@ -1328,10 +1340,13 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
                     print 'fieldname =', fieldname, 'cnt = ', "% 3d" % cnt, '   pict.datum =', pict.datum, 'x_cnt , y_cnt =', x_cnt, y_cnt,
                 val_y = getattr(pict, fieldname + '_y')  # get the value as string
                 val_x = getattr(pict, fieldname + '_x')  # get the value as string
-                if val_y:                                # is there a value in this category?
-                    if (x_cnt == 0) and (y_cnt == 0):  # pict is on far left side and is not first pict.
+                if not val_y:  # is there a value in this category?
+                    no_val = True
+                elif val_y:  # is there a value in this category?
+                    if ((x_cnt == 0) and (y_cnt == 0)) or no_val:  # pict is on far left side and is not first pict.
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
                         p_1 = calc_img_datapoint_coord(pict, val_x, val_y)
+                        no_val = False
                     elif (x_cnt == 0) and (y_cnt != 0):
                         # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
                         # pict is on far left side and is not first pict.
@@ -1348,6 +1363,7 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
                         line = dwg.line(start=p_1, end=p_2c, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
 
+                        # http: // tutorials.jenkov.com / svg / marker - element.html
                         marker = dwg.marker(insert=(6, 5), size=(10, 10), orient='auto')
                         marker.add(
                             dwg.path("M2 2  L2 8  L8 5  L2 2", fill=stroke_color, stroke='black', stroke_width='0.1'))
@@ -1428,6 +1444,24 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     return dwg
 
 
+def plot_via_svg_pict_edges(dwg):
+    # Plot data points via svg
+    quiet = True
+    if not quiet: print '>>> plot_via_svg_pict_edges(dwg) BEGIN'
+    for pict in list_of_pict:
+        if (pict.x_coord and pict.y_coord):
+            ul = (pict.x_coord, pict.y_coord)
+            ur = ((int (pict.x_coord) + x_pict, pict.y_coord))
+            ll = (pict.x_coord, (int (pict.y_coord) + y_pict))
+            lr = (int (pict.x_coord) + x_pict, (int (pict.y_coord) + y_pict))
+            mark_pict_corners(dwg, ul, ur, ll, lr)
+            if not quiet:
+                print
+    if not quiet:
+        print '>>> plot_via_svg_pict_edges(dwg) END'
+    return dwg
+
+
 def plot_data_via_svg(data_fields):
     # Pixelorientierte Graphik:
     # http://stackoverflow.com/questions/13714454/specifying-and-saving-a-figure-with-exact-size-in-pixels
@@ -1465,6 +1499,8 @@ def plot_data_via_svg(data_fields):
     #
     # Forcing svgwrite to set dimensions to svg_size_width x svg_size_height:
     dwg = mark_image_corners(dwg)
+    # Plot pict edges
+    dwg = plot_via_svg_pict_edges(dwg)
     # Plot lines
     # dwg = plot_via_svg_data_lines(dwg, data_fields, field_color_dict, x_bias, y_bias)
     dwg = plot_via_svg_data_lines_expanding(dwg, data_fields, field_color_dict, x_bias, y_bias)
@@ -1487,7 +1523,7 @@ do_synthesize_new_images   = False
 do_stitch_images           = False
 
 do_calc_calc_av_gray       = False
-do_calc_F2divTISO          = True
+do_calc_F2divTISO          = False
 do_connect_with_DWD_data   = False
 
 do_calc_data_point_coord   = True
