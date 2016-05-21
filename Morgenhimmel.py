@@ -1167,6 +1167,19 @@ def calc_pict_datapoint_coord(data_fields):
     test_min_max = []
     # x_bias  global
     # y_bias  global
+    # low_border = int(pict.y_coord) + y_pict # low border of _pict_ (0,0 == left upper edge of pict!)
+    low_border = y_pict                  # low border of _pict_ (0,0 == left upper edge of pict!)
+    low_border = low_border - y_bias     # low border of data area in pict with borders on every side (left, right, ... ) of 10%
+
+    # calc x coordinate of data point in pict:
+    for pict in list_of_pict:
+        for fieldname in data_fields:
+            # if dict_values[fieldname]:
+            if getattr(pict, fieldname):
+                # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
+                setattr(pict, fieldname + '_x', x_bias)  # scaled and adjusted val as string
+
+    # calc y coordinate of data point in pict:
     for pict in list_of_pict:
         for fieldname in data_fields:
             # if dict_values[fieldname]:
@@ -1180,8 +1193,11 @@ def calc_pict_datapoint_coord(data_fields):
                 # y_pict = pict height;
                 # Thus drawing the value into the picture the lowest val may lay at the lower 10% line,
                 # the highest val may lay at the upper 10% line.
-
+                #
+                # scaled: 0 <= img_y <= (y_pict * 0.8)
                 img_y   = int ((y_pict * (val_pict - val_min) * 0.8) / (val_max - val_min))
+                img_y   = low_border - img_y                # moved into data area of pict
+                setattr(pict, fieldname + '_y', img_y)      # scaled and adjusted val as string
                 #
                 if not quiet:
                     delta_y = y_edge_high - img_y          # upper border - y-value
@@ -1193,37 +1209,33 @@ def calc_pict_datapoint_coord(data_fields):
                         print bcolors.FAIL + str(delta_y) + bcolors.ENDC
                     else:
                         print
-                setattr(pict, fieldname + '_y', img_y)      # scaled and adjusted val as string
                 test_min_max.append(img_y)
 
-        for pict in list_of_pict:
-            for fieldname in data_fields:
-                # if dict_values[fieldname]:
-                if getattr(pict, fieldname):
-                    # dict_values[fieldname].append(float(getattr(pict, fieldname)))  # pict.fieldname
-                    setattr(pict, fieldname + '_x', x_bias)  # scaled and adjusted val as string
         if not quiet:
             print
-    if not quiet:
-        print '>>> calc_pict_datapoint_coord() END'
+
+
+if not quiet:
+    print '>>> calc_pict_datapoint_coord() END'
 
 
 def calc_img_datapoint_coord(pict, val_x, val_y):
     # calc x,y coordinates in result image of data point.
+    if not quiet: print '>>> calc_img_datapoint_coord() BEGIN'
     if val_x:
         x_coord = int(pict.x_coord) + int(val_x)  # x-coordinate in result image res_img
     else:
         x_coord = int(pict.x_coord)
     #
     low_border = int(pict.y_coord) + y_pict # y-coordinate of lower border of _pict_ (0,0 == left upper edge of pict!)
-    # y_coord    = low_border                 # lower border of image
-    y_coord    = low_border - y_bias        # adjusted lower limit of y-values
+    # y_coord    = low_border - y_bias        # adjusted lower limit of y-values
 
     if val_y:
-        y_coord    = y_coord - int(val_y)         # y-coordinate according value
+        y_coord    = low_border - int(val_y)  # y-coordinate according value
     else:
-        y_coord    = y_coord                      # y-coordinate according value
+        y_coord    = low_border               # y-coordinate according value
     return (x_coord, y_coord)
+    if not quiet: print '>>> calc_img_datapoint_coord() END'
 
 
 def plot_via_svg_text(dwg, fieldnames, field_color_dict, x_bias, y_bias):
@@ -1308,7 +1320,7 @@ def ret_y_at_x_in_line_through_p1_p2(x, p1, p2):
     return y
 
 
-def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias, y_bias):
+def plot_via_svg_data_lines(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     # connect data points with lines expanding lines on the far left and far right side.
     quiet = True
     if not quiet:
@@ -1343,26 +1355,21 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
                 if not val_y:  # is there a value in this category?
                     no_val = True
                 elif val_y:  # is there a value in this category?
-                    if ((x_cnt == 0) and (y_cnt == 0)) or no_val:  # pict is on far left side and is not first pict.
-                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
+                    if ((x_cnt == 0) and (y_cnt == 0)) or no_val:  # pict is first pict OR preceding pict had no data val.
                         p_1 = calc_img_datapoint_coord(pict, val_x, val_y)
                         no_val = False
-                    elif (x_cnt == 0) and (y_cnt != 0):
-                        # print 'x_cnt , y_cnt =', x_cnt , y_cnt, ',  pict.datum =', pict.datum, ',  pict.x_coord =', pict.x_coord, ',  val_y =',  val_y
-                        # pict is on far left side and is not first pict.
-                        #
-                        # 1) draw right lines on far right pic on row above:
+                    elif (x_cnt == 0) and (y_cnt != 0):  # pict is on far left side and is not first pict.
+                        # 1) draw lines on far right pic on row above:
                         p_2  = calc_img_datapoint_coord(pict, val_x, val_y)  # pict: original coordinates
-                        p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)     # pict: moved to the outer right side of row above.
+                        # pict: moved to the outer right side of row above:
+                        p_2b = (p_1[0] + x_pict + border, p_2[1] - y_pict - border)
                         # straight cartesian_line: y = ax + b  with points p_1 and p_2b
                         x = x_img_dim - 2 * border  # == right border of most right pict
                         # calc equation of line passing through p1 and p2; return y at x-coord:
                         p_2c = (x, ret_y_at_x_in_line_through_p1_p2(x, p_1, p_2b))
-
                         # draw svg line through p_1(x,y) and p_2c(x,y):
                         line = dwg.line(start=p_1, end=p_2c, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
-
                         # http: // tutorials.jenkov.com / svg / marker - element.html
                         marker = dwg.marker(insert=(6, 5), size=(10, 10), orient='auto')
                         marker.add(
@@ -1380,25 +1387,18 @@ def plot_via_svg_data_lines_expanding(dwg, fieldnames, field_color_dict, x_bias,
                         # calc equation of line passing through p1 and p2; return y at x-coord:
                         p_1c = (x, ret_y_at_x_in_line_through_p1_p2(x, p_1b, p_2))
                         # line.set_markers(marker)
-
                         line = dwg.line(start=p_1c, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
-
                         line['marker-end'] = marker.get_funciri()
                         line = dwg.line(start=p_1c, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
                         #
                         p_1 = p_2
-                        # p_2  = calc_img_datapoint_coord(pict, val_y)
-                        # line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
-                        # dwg.add(line)
                     else:
                         p_2 = calc_img_datapoint_coord(pict, val_x, val_y)
                         line = dwg.line(start=p_1, end=p_2, stroke=stroke_color, stroke_width=stroke_width)
                         dwg.add(line)
                         p_1 = p_2
-                # if (x_cnt == x_max - 1):
-                #     p_1 = 0, 0
                 cnt += 1
                 if not quiet:
                     print p_1, p_2
@@ -1412,7 +1412,7 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
     quiet = True
     if not quiet: print '>>> plot_via_svg_data_points() BEGIN'
 
-    radius = x_pict // 100
+    radius = x_pict // 100  # of circles for data points
     for pict in list_of_pict:
         if (pict.x_coord and pict.y_coord):
             for fieldname in fieldnames:  # for each category (temperature, humidity ...)
@@ -1445,7 +1445,7 @@ def plot_via_svg_data_points(dwg, fieldnames, field_color_dict, x_bias, y_bias):
 
 
 def plot_via_svg_pict_edges(dwg):
-    # Plot data points via svg
+    # Plots markers (circles) in the edges of picts
     quiet = True
     if not quiet: print '>>> plot_via_svg_pict_edges(dwg) BEGIN'
     for pict in list_of_pict:
@@ -1503,7 +1503,7 @@ def plot_data_via_svg(data_fields):
     dwg = plot_via_svg_pict_edges(dwg)
     # Plot lines
     # dwg = plot_via_svg_data_lines(dwg, data_fields, field_color_dict, x_bias, y_bias)
-    dwg = plot_via_svg_data_lines_expanding(dwg, data_fields, field_color_dict, x_bias, y_bias)
+    dwg = plot_via_svg_data_lines(dwg, data_fields, field_color_dict, x_bias, y_bias)
     # Plot data points
     dwg = plot_via_svg_data_points(dwg, data_fields, field_color_dict, x_bias, y_bias)
     #  Plot data legend
