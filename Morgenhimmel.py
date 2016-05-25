@@ -1558,6 +1558,11 @@ def statistics():
     #                               'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']])
     # showing the results:
     # plt.show()
+    # seaborn.pairplot(data, vars=['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
+    #                              'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y'],
+    #                               kind='reg')
+    # seaborn.pairplot(data, vars=['F2divTISO_y', 'av_gray_y', 'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y'], kind='reg')
+    seaborn.pairplot(data, vars=['av_gray_y', 'sky_KW_J_y', ], kind='reg',dropna=True)
 
     if not quiet: print '>>> statistics() END'
 
