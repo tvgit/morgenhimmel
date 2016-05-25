@@ -37,13 +37,16 @@ import exifread       # EXIF write python 2.7xx
 import getopt
 import io
 import matplotlib.pyplot as plt
-import numpy
+import numpy as np
 import os
+import pandas
+from pandas.tools import plotting
 import piexif         # EXIF write python 2.7xx
-import pprint
+from pprint import pprint
 import random
 import re
 import scipy
+import seaborn
 import svgwrite
 import sys
 import tempfile
@@ -356,7 +359,7 @@ def print_valid_picts_in_list(list_of_pict=list_of_pict):
     list_of_pict.sort(key = attrgetter('datum'))
     cnt_valid_picts = 0
     for pict in list_of_pict:
-        # pprint.pprint(pict)
+        # pprint(pict)
         if pict.Model != 'ToDo':
             cnt_valid_picts += 1
             out_str = '{:4d}'.format(cnt_valid_picts), pict
@@ -370,7 +373,7 @@ def print_valid_picts_in_list(list_of_pict=list_of_pict):
 def print_all_picts_in_list():
     list_of_pict.sort(key = attrgetter('datum'))
     for pict in list_of_pict:
-        pprint.pprint(pict)
+        pprint(pict)
 
 def print_todo_picts_in_list():
     list_of_pict.sort(key = attrgetter('datum'))
@@ -552,13 +555,10 @@ def csv_picts_write(list_of_pict):
         for pict in list_of_pict:
             # print pict.__dict__
             writer.writerow(pict.__dict__)            # write values of dictionary: >pict.__dict__<. dictionary!!
-    # pprint.pprint(fieldnames)
+    # pprint(fieldnames)
 
-def csv_picts_read():
-    # (SilentGhost' answer is helpfull) but here we use _existing_ class -> simply adapt >PictClass.__init__<
-    # http://stackoverflow.com/questions/1639174/creating-class-instance-properties-from-a-dictionary-in-python
-    #
-    # there are a lot of result files >YYYY_MM_DD_mm_result.csv< in the result dir => find the most recent one.
+def get_latest_csv_fn():
+    # there are a lot of result files >YYYY_MM_DD_mm_result.csv< in the result dir => return the most recent one.
     reg_YMDHm_pict = make_regex_YMDHm_pict()#
     # os.path.join(path_picts, dir, fn)
     results_dir = os.path.join(path_picts, 'results', '')
@@ -575,6 +575,32 @@ def csv_picts_read():
 
     fn = max(result_files)  # most recent result file (>YYYY_MM_DD_mm_result.csv<).
     result_fn = os.path.join(path_picts, 'results', fn)
+    return result_fn
+    print '\n', 'Reading data from: \n>', result_fn
+
+
+def csv_picts_read():
+    # (SilentGhost' answer is helpfull) but here we use _existing_ class -> simply adapt >PictClass.__init__<
+    # http://stackoverflow.com/questions/1639174/creating-class-instance-properties-from-a-dictionary-in-python
+    #
+    # there are a lot of result files >YYYY_MM_DD_mm_result.csv< in the result dir => find the most recent one.
+    # reg_YMDHm_pict = make_regex_YMDHm_pict()#
+    # # os.path.join(path_picts, dir, fn)
+    # results_dir = os.path.join(path_picts, 'results', '')
+    # root, dirs, files = os.walk(results_dir).next()  # only first level
+    # result_files = []
+    # for f_name in files:  # only files, not subdirs
+    #     # print f_name,
+    #     if re.match(reg_YMDHm_pict, f_name):
+    #         result_files.append(f_name)
+    #         # print 'found result file: ', f_name
+    #     else:
+    #         pass
+    #         # print
+    #
+    # fn = max(result_files)  # most recent result file (>YYYY_MM_DD_mm_result.csv<).
+    # result_fn = os.path.join(path_picts, 'results', fn)
+    result_fn = get_latest_csv_fn()
     print '\n', 'Reading data from: \n>', result_fn
     #
     cnt = 0
@@ -610,7 +636,7 @@ def adjust_EXIF_tags(pict):
     print 'synthesized: ', pict.path_fn
     exif_dict = piexif.load(pict.path_fn)  # EXIF data as dictionary ...     (can not be written in file)
     exif_bytes = piexif.dump(exif_dict)    # transformed in byte - data. ... (can     be written in file)
-    # pprint.pprint (exif_dict)
+    # pprint (exif_dict)
     # for ifd_name in exif_dict:
     #     # print ("\n{0} IFD:".format(ifd_name))
     #     if hasattr(exif_dict[ifd_name], "__iter__"):
@@ -628,7 +654,7 @@ def adjust_EXIF_tags(pict):
     # exif_dict['0th'][271] = 'synthesized'  # == Make
     # adjust Model tag:
     exif_dict['0th'][272] = 'synthesized'    # == Model ??
-    # pprint.pprint(exif_dict)
+    # pprint(exif_dict)
     # adjust dates:
     dt = pict.datum
     date_str = dt[0:4] + ':' + dt[5:7]+ ':' + dt[8:10] + ' 09:00:00'
@@ -654,7 +680,7 @@ def test_EXIF_Tag(pict):
     print 'test_EXIF_Tag: ', pict.path_fn
     exif_dict = piexif.load(pict.path_fn)  # EXIF data as dictionary ...     (can not be written in file)
     exif_bytes = piexif.dump(exif_dict)    # transformed in byte - data. ... (can     be written in file)
-    pprint.pprint (exif_dict)
+    pprint (exif_dict)
     # for ifd_name in exif_dict:
     #     # print ("\n{0} IFD:".format(ifd_name))
     #     if hasattr(exif_dict[ifd_name], "__iter__"):
@@ -681,7 +707,7 @@ def test_EXIF_Tag(pict):
     exif_dict['Exif'][36868] = date_str
     print date_str
 
-    # pprint.pprint(exif_dict)
+    # pprint(exif_dict)
     exif_bytes = piexif.dump(exif_dict)  # transforme EXIF-dict in byte-data. ... (can     be written in file)
     # save file with changed EXIF tag:
     piexif.insert(exif_bytes, pict.path_fn)
@@ -1152,7 +1178,7 @@ def calc_pict_datapoint_coord(data_fields):
 
     if not quiet:
         for fieldname in data_fields:
-            # pprint.pprint (dict_values[fieldname])  # pict.fieldname
+            # pprint (dict_values[fieldname])  # pict.fieldname
             # dict_values[fieldname].sort()  # pict.fieldname
             print "% 11s" % fieldname, # pict.fieldname
             print "% 4.2f" % dict_min[fieldname][0], "% 4.2f" % dict_max[fieldname][0],
@@ -1516,6 +1542,26 @@ def plot_data_via_svg(data_fields):
         print 'x * y = ', svg_dimensions
 
 
+def statistics():
+    quiet = False
+    if not quiet: print '>>> statistics() BEGIN'
+
+    fn_in = "D:/Data_Work/Other_Data/_Morgen_Himmel/_Morgen_Himmel_alle_001/results/2016_05_23_01_16_picts.csv"
+    data = pandas.read_csv(fn_in, sep=',', na_values="")
+    print data.shape  # 40 rows and 8 columns
+    # pprint (data)
+    pprint(data.columns)
+    # plotting.scatter_matrix(data[['F2divTISO_y', 'av_gray_y', 'sky_KW_J_y']])
+    # plotting.scatter_matrix(data[['F2divTISO', 'av_gray', 'temperature', 'humidity',
+    #                               'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']])
+    # plotting.scatter_matrix(data[['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
+    #                               'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']])
+    # showing the results:
+    # plt.show()
+
+    if not quiet: print '>>> statistics() END'
+
+
 #======================================================================
 
 do_make_rename_file        = False
@@ -1526,8 +1572,10 @@ do_calc_calc_av_gray       = False
 do_calc_F2divTISO          = False
 do_connect_with_DWD_data   = False
 
-do_calc_data_point_coord   = True
-do_plot_data               = True
+do_calc_data_point_coord   = False
+do_plot_data               = False
+
+do_statistics              = True
 
 if __name__ == '__main__':
     # >list_of_pict< is global
@@ -1577,6 +1625,7 @@ if __name__ == '__main__':
     if do_stitch_images:
         stitch_images()
         csv_picts_write(list_of_pict)
+        list_of_pict = csv_picts_read()
 
     if do_calc_calc_av_gray or cnt_synthd_images:  # if no image changed, no calculation
         calc_av_gray()
@@ -1610,6 +1659,11 @@ if __name__ == '__main__':
 
     if do_plot_data:
         plot_data_via_svg(data_fields)
+
+    if do_statistics:
+        statistics()
+        csv_picts_write(list_of_pict)
+        list_of_pict = csv_picts_read()
 
     # csv_picts_write(list_of_pict)
 
