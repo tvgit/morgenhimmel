@@ -355,7 +355,7 @@ def make_regex_YMDHm_pict():
     # m = rg.search(txt)    # m = rg.search(txt)
     return rgx
 
-def print_valid_picts_in_list(list_of_pict=list_of_pict):
+def count_valid_picts_in_list():
     list_of_pict.sort(key = attrgetter('datum'))
     cnt_valid_picts = 0
     for pict in list_of_pict:
@@ -365,9 +365,9 @@ def print_valid_picts_in_list(list_of_pict=list_of_pict):
             out_str = '{:4d}'.format(cnt_valid_picts), pict
         else:
             out_str = 'Model = rh: ', pict
-
-    if not quiet:
-        print out_str
+        if not quiet:
+            print out_str
+    # print ">", '{:4d}'.format(cnt_valid_picts), " valid   picts in list "
     return cnt_valid_picts
 
 def print_all_picts_in_list():
@@ -375,7 +375,14 @@ def print_all_picts_in_list():
     for pict in list_of_pict:
         pprint(pict)
 
-def print_todo_picts_in_list():
+
+def mark_picts_to_synthesize():
+    list_of_pict.sort(key = attrgetter('datum'))
+    for pict in list_of_pict:
+        if pict.Model == 'synthesized':
+            pict.Model = 'ToDo'
+
+def count_todo_picts_in_list(do_synthesize_new_images):
     list_of_pict.sort(key = attrgetter('datum'))
     print 'Images to synthesize:' ,
     cnt_picts = 0
@@ -384,7 +391,7 @@ def print_todo_picts_in_list():
             cnt_picts += 1
             if cnt_picts == 1:
                 print
-            print '{:4d}'.format(cnt_picts) + ': ', pict
+            print '{:4d}'.format(cnt_picts) + ': ', pict.datum
     if cnt_picts == 0:
         print cnt_picts
     return cnt_picts
@@ -576,7 +583,7 @@ def get_latest_csv_fn():
     fn = max(result_files)  # most recent result file (>YYYY_MM_DD_mm_result.csv<).
     result_fn = os.path.join(path_picts, 'results', fn)
     return result_fn
-    print '\n', 'Reading data from: \n>', result_fn
+    print 'Reading data from:', result_fn,
 
 
 def csv_picts_read():
@@ -601,7 +608,7 @@ def csv_picts_read():
     # fn = max(result_files)  # most recent result file (>YYYY_MM_DD_mm_result.csv<).
     # result_fn = os.path.join(path_picts, 'results', fn)
     result_fn = get_latest_csv_fn()
-    print '\n', 'Reading data from: \n>', result_fn
+    print 'Reading data from: \n>', result_fn,
     #
     cnt = 0
     cnt_max = x_cnt_pct * y_cnt_pct
@@ -729,11 +736,10 @@ def temporary_corr_EXIF_of_synthesized_picts(list_of_pict=list_of_pict):
     # write_EXIF_explore()
     pass
 
-def calc_model_type_picts():
+def count_model_type_picts():
     # calc's number of images per model
     dict_model_cnt = {}   # {model:cnt}
     list_of_pict.sort(key=attrgetter('Model', 'datum')) # sort list_of_pict
-
     for pict in list_of_pict:
         if pict.Model not in dict_model_cnt.keys():
             dict_model_cnt[pict.Model] = 1
@@ -743,13 +749,10 @@ def calc_model_type_picts():
     for model, cnt in sorted(dict_model_cnt.iteritems()):
         temp = [model, cnt]
         list_model_cnt.append(temp)
-
     list_model_cnt.sort(key=lambda x: x[0])
-
     print
     for model, cnt in list_model_cnt:
         print model + ':', cnt
-
     return list_model_cnt
 
 def synthesize_image_and_save_it(pict_new, pict_1, pict_2, pict_3):
@@ -764,7 +767,7 @@ def synthesize_image_and_save_it(pict_new, pict_1, pict_2, pict_3):
     im.close()
 
     # img = Image.merge("RGB", (red, green, blue))
-    attenuated_red = red.point(lambda i: i * 0.85)      # attenuate red channel
+    attenuated_red = red.point(lambda i: i * 0.66)      # attenuate red channel
     img = Image.merge("RGB", (attenuated_red, green, blue))
     img.save((os.path.join(path_picts, synth_image_dir, pict_new.fn)))
 
@@ -789,9 +792,9 @@ def calc_and_store_FN_ExposureTime_ISOSpeed(pict_new, pict_1, pict_2, pict_3):
     # val, idx = min((val, idx) for (idx, val) in enumerate(my_list))
     list_delta_FNumber = list(abs(float(x - average_FNumber)) for x in List_FNumbers_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_FNumber))
-    # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumbers_float[idx], List_FNumbers[idx]
     pict_new.FNumber     = List_FNumbers_float[idx]
     pict_new.FNumber_str = List_FNumbers[idx]
+    # print 'delta: ', val, 'idx: ', idx, average_FNumber, List_FNumbers_float[idx], List_FNumbers[idx]
 
     list_delta_ExpoTime = list(abs(float(x - average_ExpoTime)) for x in List_ExpoTimes_float)
     val, idx = min((val, idx) for (idx, val) in enumerate(list_delta_ExpoTime))
@@ -814,11 +817,10 @@ def make_new_images_logstr (cnt, new_pict, pict_s):
 def list_synthesized_images():
     for pict in list_of_pict:
         if pict.Model == 'synthesized': # find synthesized images
-            print pict
+            print pict.datum
 
-def synthesize_missing_picts():
-    # following _global_ lists are used in >def calc_and_store_FN_ExposureTime_ISOSpeed<
-    #   to calc FN_ExposureTime_ISOSpeed values
+def make_lists_FNumbers_ExpoTimes_List_ISOSpeeds():
+    # following _global_ lists are used to calc FN_ExposureTime_ISOSpeed values
     global List_FNumbers
     global List_ExpoTimes
     global List_ISOSpeeds
@@ -835,13 +837,16 @@ def synthesize_missing_picts():
     List_ExpoTimes_float = list(float(Fraction(x)) for x in List_ExpoTimes)
     List_ISOSpeeds_float = list(float(Fraction(x)) for x in List_ISOSpeeds)
 
+def synthesize_new_picts():
     # synth images:
     # a) combine r,g,b channels from 3 different images of _same_ camera model (to conserve dimensions, geometry etc)
     # b) relation of camera model of new images reflects relation of camera models of existing images
     # c) o calc FN_ExposureTime_ISOSpeed values by calling function
     # d) log all
     #
-    list_model_cnt = calc_model_type_picts()    # list: how many img's from which camera model ?
+    make_lists_FNumbers_ExpoTimes_List_ISOSpeeds()
+    #
+    list_model_cnt = count_model_type_picts()    # list: how many img's from which camera model ?
     iter_list_model_cnt = iter(list_model_cnt)  # convert list to iterator
     model, cnt_g1X = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  first  model (G1 X)
     model, cnt_g15 = iter_list_model_cnt.next() # idx in list_of_pict of last G1X pict:  second model (G15)
@@ -881,11 +886,12 @@ def synthesize_missing_picts():
             cnt_synthd_images += 1
             #
             # store names of source images in >pict< object:
-            pict_to_synth.sources = pict_s[0].fn + ', ' + pict_s[1].fn + ', ' + pict_s[2].fn
+            pict_to_synth.sources = pict_s[0].fn + '; ' + pict_s[1].fn + '; ' + pict_s[2].fn
             # calc virtual FNumber, ExposureTime and ISOSpeed of synthesized image
             calc_and_store_FN_ExposureTime_ISOSpeed (pict_to_synth, pict_s[0], pict_s[1], pict_s[2])
             # mark it as synthesized image in >pict< object
             pict_to_synth.Model   = 'synthesized'
+            pict_to_synth.Make    = 'rh'
             # compose log_str and write it to file
             log_str = make_new_images_logstr(cnt_synthd_images, pict_to_synth, pict_s)
             log_f.write(log_str)
@@ -894,10 +900,11 @@ def synthesize_missing_picts():
     # show what you've done
     if cnt_synthd_images > 0:
         list_synthesized_images()
-        return cnt_synthd_images
     else:
         print "No new images to synthesize."
-        return cnt_synthd_images
+
+    return cnt_synthd_images
+
 
 
 def reduce_image_resolution():
@@ -1118,11 +1125,16 @@ def calc_av_gray():
 
 def calc_F2divTISO():
     # print '>>>>>>>> F2divTISO():'
+    make_lists_FNumbers_ExpoTimes_List_ISOSpeeds()
     list_of_pict.sort(key = attrgetter('datum'))
     for pict in list_of_pict:
         image = Image.open(pict.path_fn).convert('L')
         if pict.Model != 'synthesized':
             pict.F2divTISO = int (float (pict.FNumber) * float(pict.FNumber) / ((float(pict.ExpoTime) * float(pict.ISOSpeed))))
+        else:
+            pass
+            # pict.F2divTISO = int (float (pict.FNumber) * float(pict.FNumber) / ((float(pict.ExpoTime) * float(pict.ISOSpeed))))
+
         # print "\r  ", ': image # ', pict.fn, pict.ExpoTime, pict.ISOSpeed, ' F2divTISO = ', pict.F2divTISO
 
 
@@ -1546,23 +1558,41 @@ def statistics():
     quiet = False
     if not quiet: print '>>> statistics() BEGIN'
 
-    fn_in = "D:/Data_Work/Other_Data/_Morgen_Himmel/_Morgen_Himmel_alle_001/results/2016_05_23_01_16_picts.csv"
-    data = pandas.read_csv(fn_in, sep=',', na_values="")
-    print data.shape  # 40 rows and 8 columns
-    # pprint (data)
-    pprint(data.columns)
-    # plotting.scatter_matrix(data[['F2divTISO_y', 'av_gray_y', 'sky_KW_J_y']])
-    # plotting.scatter_matrix(data[['F2divTISO', 'av_gray', 'temperature', 'humidity',
-    #                               'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']])
-    # plotting.scatter_matrix(data[['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
-    #                               'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']])
-    # showing the results:
-    # plt.show()
-    # seaborn.pairplot(data, vars=['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
-    #                              'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y'],
-    #                               kind='reg')
-    # seaborn.pairplot(data, vars=['F2divTISO_y', 'av_gray_y', 'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y'], kind='reg')
-    seaborn.pairplot(data, vars=['av_gray_y', 'sky_KW_J_y', ], kind='reg',dropna=True)
+    fn_in  = "D:/Data_Work/Other_Data/_Morgen_Himmel/_Morgen_Himmel_alle_001/results/2016_05_27_01_25_picts.csv"
+    fn_out = "D:/Data_Work/Other_Data/_Morgen_Himmel/_Morgen_Himmel_alle_001/results/2016_05_27_01_25_picts____out.csv"
+    df = pandas.read_csv(fn_in, sep=',', na_values="")
+    print df.shape  # 40 rows and 8 columns
+    # pprint(df.columns)
+    pprint(df.count())
+    print
+    # df = df.apply(lambda x: x.str.strip()).replace('', np.nan)
+    df = df.drop('sources', 1)
+    # pprint(df.columns)
+    pprint(df.count())
+    print
+    df = df.apply(lambda x: x.replace('', np.nan))
+    df = df.dropna(how='any')
+    # pprint(df.columns)
+    pprint(df.count())
+
+    data_vars_list = ['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
+                                  'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
+    data_vars_list = ['F2divTISO', 'av_gray', 'temperature', 'humidity',
+                      'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
+    # data_vars_list = [             'av_gray', 'temperature', 'humidity',
+    #                   'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
+
+    # df.to_csv(fn_out)
+
+    # pprint (df)
+
+    # plotting.scatter_matrix(df[data_vars_list])
+    seaborn.pairplot(df, vars = data_vars_list, hue="Model", kind='reg')
+    # seaborn.pairplot(df, vars = data_vars_list, kind='reg')
+    plt.show()
+
+
+
 
     if not quiet: print '>>> statistics() END'
 
@@ -1582,6 +1612,24 @@ do_plot_data               = False
 
 do_statistics              = True
 
+# ############################
+
+# do_make_rename_file        = False
+# do_synthesize_new_images   = True
+# do_stitch_images           = True
+#
+# do_calc_calc_av_gray       = True
+# do_calc_F2divTISO          = True
+# do_connect_with_DWD_data   = True
+#
+# do_calc_data_point_coord   = True
+# do_plot_data               = True
+#
+# do_statistics              = False
+
+
+
+
 if __name__ == '__main__':
     # >list_of_pict< is global
     # global list_of_pict
@@ -1589,6 +1637,7 @@ if __name__ == '__main__':
     quiet, do_calc_calc_av_gray, do_make_rename_file = get_opts_args()
 
     initialize_list_of_picts()
+    make_lists_FNumbers_ExpoTimes_List_ISOSpeeds()
 
     if do_make_rename_file:
         cnt_picts_to_rename = make_rename_batch_file()
@@ -1597,29 +1646,31 @@ if __name__ == '__main__':
 
     list_of_pict = csv_picts_read()
 
-    cnt_jpg_files, cnt_valid_files = make_list_of_picts_via_EXIF()  # *.jpg files in directory
-    cnt_valid_picts                = print_valid_picts_in_list()    # picts in list
-    cnt_missing_picts              = print_todo_picts_in_list()
-    # print '\n', '{:4d}'.format(cnt_missing_picts), ' fehlen. '
+    count_model_type_picts()
 
-    print "\n\n"
-    '{:4d}'.format(cnt_valid_picts)
+    if do_synthesize_new_images:
+        mark_picts_to_synthesize()
+
+    cnt_jpg_files, cnt_valid_files = make_list_of_picts_via_EXIF()  # *.jpg files in directory
+    cnt_valid_picts                = count_valid_picts_in_list()    # picts in list
+    cnt_ToDo_picts                 = count_todo_picts_in_list(do_synthesize_new_images)
+
     print ">", '{:4d}'.format(cnt_days),           "days    in total"
     print ">", '{:4d}'.format(cnt_jpg_files),      "jpg     files in directory "
     print ">", '{:4d}'.format(cnt_valid_files),    "valid   files in directory "
     print ">", '{:4d}'.format(cnt_valid_picts),    "valid   picts in list "
-    print ">", '{:4d}'.format(cnt_missing_picts),  "missing picts in list "
+    print ">", '{:4d}'.format(cnt_ToDo_picts),     "picts in list to synthesize "
 
-    # calc_model_type_picts()   # show number of picts for every camera model
+    # count_model_type_picts()   # show number of picts for every camera model
     # csv_picts_write(list_of_pict)
 
-    cnt_synthd_images = 0
+    # cnt_synthd_images = 0
     if do_synthesize_new_images:
-        cnt_synthd_images = synthesize_missing_picts()
-        cnt_valid_picts = print_valid_picts_in_list()  # picts in list
+        cnt_synthd_images = synthesize_new_picts()
+        cnt_valid_picts   = count_valid_picts_in_list()  # picts in list
         print ">", '{:4d}'.format(cnt_valid_picts), " valid   picts in list "
         csv_picts_write(list_of_pict)
-        list_of_pict = csv_picts_read()
+        list_of_pict      = csv_picts_read()
 
     # test_EXIF_Tag(list_of_pict[0])
     # temporary_corr_EXIF_of_synthesized_picts(list_of_pict)
@@ -1632,12 +1683,13 @@ if __name__ == '__main__':
         csv_picts_write(list_of_pict)
         list_of_pict = csv_picts_read()
 
-    if do_calc_calc_av_gray or cnt_synthd_images:  # if no image changed, no calculation
+    if do_calc_calc_av_gray or do_synthesize_new_images:  # if no image changed, no calculation
         calc_av_gray()
         csv_picts_write(list_of_pict)
         list_of_pict = csv_picts_read()
 
-    if do_calc_F2divTISO or cnt_synthd_images:   # if no image changed, no calculation
+    if do_calc_F2divTISO or do_synthesize_new_images:   # if no image changed, no calculation
+        make_lists_FNumbers_ExpoTimes_List_ISOSpeeds()
         calc_F2divTISO()
         csv_picts_write(list_of_pict)
         list_of_pict = csv_picts_read()
@@ -1657,7 +1709,7 @@ if __name__ == '__main__':
           do_calc_calc_av_gray or
           do_calc_F2divTISO or
           do_connect_with_DWD_data or
-          cnt_synthd_images) :
+          do_synthesize_new_images) :
         calc_pict_datapoint_coord(data_fields)
         csv_picts_write(list_of_pict)
         list_of_pict = csv_picts_read()
