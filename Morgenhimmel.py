@@ -1578,6 +1578,32 @@ def simulate_missing_F2divTISO_vals(df):
     print '>>> simulate_missing_F2divTISO_vals(df) : END'
     return F2divTISO_new
 
+def simulate_02_missing_F2divTISO_vals(df):
+    # We want to substitute - non existing - data points for >F2divTISO< for synth'd picts in graphs .
+    # Simulate these data points by copying existing ones respecting the distribution of the existing ones.
+    print '>>> simulate_missing_F2divTISO_vals(df) : BEGIN'
+    df_new = df.copy(deep=True)
+
+    F2divTISO_cpy  = df['F2divTISO']            # get column 'F2divTISO'
+    F2div_not_nan  = df['F2divTISO'].dropna()   # get only vals <> nan
+    # F2div_nan      = df['F2divTISO'].isnull() # get only vals == nan
+    F2div_list     = F2div_not_nan.tolist()     # convert column to list
+    #
+    len_df = len(df.index)
+    # make new series (== column) with length of df.
+    cnt = 0
+    for item in df['F2divTISO']:
+        if pandas.isnull(item):
+            rnd_idx = random.randint(0, len(F2div_list)-1)
+            item = F2div_list[rnd_idx]
+        # df_new['F2divTISO'][cnt] = item
+        # df_new.set_value('F2divTISO', cnt, item)    # wrong !!! =>
+        df_new.set_value(cnt, 'F2divTISO', item)      # !!! first y-axis (==cnt), then x-axis (== 'F2divTISO')
+        cnt += 1
+    print '>>> simulate_missing_F2divTISO_vals(df) : END'
+    return df_new
+
+
 def statistics():
     quiet = False
     if not quiet: print '>>> statistics() BEGIN'
@@ -1590,16 +1616,7 @@ def statistics():
     # pprint(df.count())
     # df = df.apply(lambda x: x.str.strip()).replace('', np.nan)
     df = df.drop('sources', 1)
-    # pprint(df.columns)
-    pprint(df.count())
-    print
     df = df.apply(lambda x: x.replace('', np.nan))
-
-    F2divTISO_new    = simulate_missing_F2divTISO_vals(df)  # substitute missing vals in column >F2divTISO<
-    df_F2divTISO_new = df.drop('F2divTISO', 1)              # remove old column >F2divTISO<
-    df_F2divTISO_new.loc[:,'F2divTISO'] = F2divTISO_new     # substitute  it with new column >F2divTISO<
-    # pprint(df_F2divTISO_new.count())
-
     # pprint(df.columns)
     # pprint(df.count())
 
@@ -1610,21 +1627,23 @@ def statistics():
     # data_vars_list = [             'av_gray', 'temperature', 'humidity',
     #                   'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
 
-    # df.to_csv(fn_out)
-    # pprint (df)
+    # df = df.dropna(how='any')
     # plotting.scatter_matrix(df[data_vars_list])
 
-    # df = df.dropna(how='any')
-    # seaborn.pairplot(df, vars = data_vars_list, kind='reg')
-    # seaborn.pairplot(df, vars = data_vars_list, hue="Model", kind='reg')
-
-    print '-----------------------------------------------------------------'
-    df_F2divTISO_new = df_F2divTISO_new.dropna(how='any')        # remove rows with NaN
-    df_F2divTISO_new.to_csv(fn_out)                              # write csv-file
-    print df_F2divTISO_new.shape  #
-    pprint(df.count())
-    # seaborn.pairplot(df_F2divTISO_new, vars = data_vars_list, kind='reg')
-    seaborn.pairplot(df_F2divTISO_new, vars = data_vars_list, hue="Model", kind='reg')
+    df_new    = simulate_02_missing_F2divTISO_vals(df)  # substitute missing vals in column >F2divTISO<
+    # remove rows with NaN in selected (!) columns only: >subset = data_vars_list<
+    df_new = df_new.dropna(subset = data_vars_list, how='any')
+    df_new.to_csv(fn_out)   # write csv-file
+    # print df_new.shape
+    # pprint(df_new.count())
+    # http://chrisalbon.com/python/seaborn_color_palettes.html
+    # !! see colors at: http://xkcd.com/color/rgb/
+    # current_palette = seaborn.color_palette(paired)
+    colors = ["windows blue", "faded green", "amber", "greyish", "dusty purple"]
+    current_palette = seaborn.xkcd_palette(colors)
+    current_palette = seaborn.color_palette("Paired")
+    seaborn.set_palette(current_palette)
+    seaborn.pairplot(df_new, vars = data_vars_list, hue="Model", kind='reg')
     plt.show()
 
     if not quiet: print '>>> statistics() END'
