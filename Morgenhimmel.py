@@ -36,6 +36,7 @@ import datetime
 import exifread       # EXIF write python 2.7xx
 import getopt
 import io
+import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -1553,6 +1554,29 @@ def plot_data_via_svg(data_fields):
         print 'writing: ', path_fn
         print 'x * y = ', svg_dimensions
 
+def simulate_missing_F2divTISO_vals(df):
+    # We want to substitute - non existing - data points for >F2divTISO< for synth'd picts in graphs .
+    # Simulate these data points by copying existing ones respecting the distribution of the existing ones.
+    print '>>> simulate_missing_F2divTISO_vals(df) : BEGIN'
+    F2divTISO_cpy  = df['F2divTISO']            # get column 'F2divTISO'
+    F2div_not_nan  = df['F2divTISO'].dropna()   # get only vals <> nan
+    # F2div_nan      = df['F2divTISO'].isnull() # get only vals == nan
+    F2div_list     = F2div_not_nan.tolist()     # convert column to list
+    #
+    len_df = len(df.index)
+    # make new series (== column) with length of df.
+    F2divTISO_new = pandas.Series('y', index= range (0, len_df,1))
+    # print F2divTISO_new
+    # print F2divTISO_new.shape, df.shape
+    cnt = 0
+    for item in F2divTISO_cpy:
+        if pandas.isnull(item):
+            rnd_idx = random.randint(0, len(F2div_list)-1)
+            item = F2div_list[rnd_idx]
+        F2divTISO_new.iloc[cnt] = item
+        cnt += 1
+    print '>>> simulate_missing_F2divTISO_vals(df) : END'
+    return F2divTISO_new
 
 def statistics():
     quiet = False
@@ -1563,36 +1587,45 @@ def statistics():
     df = pandas.read_csv(fn_in, sep=',', na_values="")
     print df.shape  # 40 rows and 8 columns
     # pprint(df.columns)
-    pprint(df.count())
-    print
+    # pprint(df.count())
     # df = df.apply(lambda x: x.str.strip()).replace('', np.nan)
     df = df.drop('sources', 1)
     # pprint(df.columns)
     pprint(df.count())
     print
     df = df.apply(lambda x: x.replace('', np.nan))
-    df = df.dropna(how='any')
-    # pprint(df.columns)
-    pprint(df.count())
 
-    data_vars_list = ['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
-                                  'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
+    F2divTISO_new    = simulate_missing_F2divTISO_vals(df)  # substitute missing vals in column >F2divTISO<
+    df_F2divTISO_new = df.drop('F2divTISO', 1)              # remove old column >F2divTISO<
+    df_F2divTISO_new.loc[:,'F2divTISO'] = F2divTISO_new     # substitute  it with new column >F2divTISO<
+    # pprint(df_F2divTISO_new.count())
+
+    # pprint(df.columns)
+    # pprint(df.count())
+
+    # data_vars_list = ['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
+    #                               'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
     data_vars_list = ['F2divTISO', 'av_gray', 'temperature', 'humidity',
                       'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
     # data_vars_list = [             'av_gray', 'temperature', 'humidity',
     #                   'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
 
     # df.to_csv(fn_out)
-
     # pprint (df)
-
     # plotting.scatter_matrix(df[data_vars_list])
-    seaborn.pairplot(df, vars = data_vars_list, hue="Model", kind='reg')
+
+    # df = df.dropna(how='any')
     # seaborn.pairplot(df, vars = data_vars_list, kind='reg')
+    # seaborn.pairplot(df, vars = data_vars_list, hue="Model", kind='reg')
+
+    print '-----------------------------------------------------------------'
+    df_F2divTISO_new = df_F2divTISO_new.dropna(how='any')        # remove rows with NaN
+    df_F2divTISO_new.to_csv(fn_out)                              # write csv-file
+    print df_F2divTISO_new.shape  #
+    pprint(df.count())
+    # seaborn.pairplot(df_F2divTISO_new, vars = data_vars_list, kind='reg')
+    seaborn.pairplot(df_F2divTISO_new, vars = data_vars_list, hue="Model", kind='reg')
     plt.show()
-
-
-
 
     if not quiet: print '>>> statistics() END'
 
