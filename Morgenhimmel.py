@@ -1557,88 +1557,76 @@ def plot_data_via_svg(data_fields):
 def simulate_missing_F2divTISO_vals(df):
     # We want to substitute - non existing - data points for >F2divTISO< for synth'd picts in graphs .
     # Simulate these data points by copying existing ones respecting the distribution of the existing ones.
-    print '>>> simulate_missing_F2divTISO_vals(df) : BEGIN'
-    F2divTISO_cpy  = df['F2divTISO']            # get column 'F2divTISO'
-    F2div_not_nan  = df['F2divTISO'].dropna()   # get only vals <> nan
-    # F2div_nan      = df['F2divTISO'].isnull() # get only vals == nan
-    F2div_list     = F2div_not_nan.tolist()     # convert column to list
+    # I know, there's a >sample< commodity, but I discovered it too late
     #
-    len_df = len(df.index)
-    # make new series (== column) with length of df.
-    F2divTISO_new = pandas.Series('y', index= range (0, len_df,1))
-    # print F2divTISO_new
-    # print F2divTISO_new.shape, df.shape
-    cnt = 0
-    for item in F2divTISO_cpy:
-        if pandas.isnull(item):
-            rnd_idx = random.randint(0, len(F2div_list)-1)
-            item = F2div_list[rnd_idx]
-        F2divTISO_new.iloc[cnt] = item
-        cnt += 1
-    print '>>> simulate_missing_F2divTISO_vals(df) : END'
-    return F2divTISO_new
-
-def simulate_02_missing_F2divTISO_vals(df):
-    # We want to substitute - non existing - data points for >F2divTISO< for synth'd picts in graphs .
-    # Simulate these data points by copying existing ones respecting the distribution of the existing ones.
-    print '>>> simulate_missing_F2divTISO_vals(df) : BEGIN'
     df_new = df.copy(deep=True)
-
-    F2divTISO_cpy  = df['F2divTISO']            # get column 'F2divTISO'
-    F2div_not_nan  = df['F2divTISO'].dropna()   # get only vals <> nan
+    # 'F2divTISO'
+    F2div_cpy      = df['F2divTISO']            # get column 'F2divTISO'
+    F2div_not_nan  = F2div_cpy.dropna()         # get only vals <> nan
     # F2div_nan      = df['F2divTISO'].isnull() # get only vals == nan
     F2div_list     = F2div_not_nan.tolist()     # convert column to list
+    # 'F2divTISO_y'
+    F2div_cpy      = df['F2divTISO_y']          # get column 'F2divTISO_y'
+    F2div_y_not_nan= F2div_cpy.dropna()         # get only vals <> nan
+    F2div_y_list   = F2div_y_not_nan.tolist()   # convert column to list
+    # 'F2divTISO_x'
+    F2div_cpy      = df['F2divTISO_x']          # get column 'F2divTISO_x'
+    F2div_x_not_nan= F2div_cpy.dropna()         # get only vals <> nan
+    F2div_x_list   = F2div_x_not_nan.tolist()   # convert column to list
+
+
     #
+    print df.shape, df.columns, df.count()
     len_df = len(df.index)
     # make new series (== column) with length of df.
     cnt = 0
     for item in df['F2divTISO']:
+        item_y = df['F2divTISO_y'][cnt]
+        item_x = df['F2divTISO_x'][cnt]
         if pandas.isnull(item):
             rnd_idx = random.randint(0, len(F2div_list)-1)
-            item = F2div_list[rnd_idx]
-        # df_new['F2divTISO'][cnt] = item
-        # df_new.set_value('F2divTISO', cnt, item)    # wrong !!! =>
-        df_new.set_value(cnt, 'F2divTISO', item)      # !!! first y-axis (==cnt), then x-axis (== 'F2divTISO')
+            item    = F2div_list[rnd_idx]
+            item_x = F2div_x_list[rnd_idx]
+            item_y = F2div_y_list[rnd_idx]
+
+        df_new.set_value(cnt, 'F2divTISO'  , item)    # !!! first y-axis (==cnt), then x-axis (== 'F2divTISO')
+        df_new.set_value(cnt, 'F2divTISO_x', item_x)  # !!! first y-axis (==cnt), then x-axis (== 'F2divTISO')
+        df_new.set_value(cnt, 'F2divTISO_y', item_y)  # !!! first y-axis (==cnt), then x-axis (== 'F2divTISO')
         cnt += 1
-    print '>>> simulate_missing_F2divTISO_vals(df) : END'
+
     return df_new
 
 
 def statistics():
+    # Make some statistics, i.e. nice graphics. Use >pandas< and >seaborn<
     quiet = False
     if not quiet: print '>>> statistics() BEGIN'
 
     fn_in  = "D:/Data_Work/Other_Data/_Morgen_Himmel/_Morgen_Himmel_alle_001/results/2016_05_27_01_25_picts.csv"
     fn_out = "D:/Data_Work/Other_Data/_Morgen_Himmel/_Morgen_Himmel_alle_001/results/2016_05_27_01_25_picts____out.csv"
     df = pandas.read_csv(fn_in, sep=',', na_values="")
-    print df.shape  # 40 rows and 8 columns
-    # pprint(df.columns)
-    # pprint(df.count())
-    # df = df.apply(lambda x: x.str.strip()).replace('', np.nan)
+    # print df.shape, df.columns, df.count()
     df = df.drop('sources', 1)
     df = df.apply(lambda x: x.replace('', np.nan))
-    # pprint(df.columns)
-    # pprint(df.count())
 
-    # data_vars_list = ['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
-    #                               'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
-    data_vars_list = ['F2divTISO', 'av_gray', 'temperature', 'humidity',
-                      'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
+    data_vars_list = ['F2divTISO_y', 'av_gray_y', 'temperature_y', 'humidity_y',
+                                  'sky_KW_J_y', 'global_KW_J_y', 'atmo_KW_J_y', 'sun_zenit_y']
+    # data_vars_list = ['F2divTISO', 'av_gray', 'temperature', 'humidity',
+    #                   'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
     # data_vars_list = [             'av_gray', 'temperature', 'humidity',
     #                   'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
 
-    # df = df.dropna(how='any')
+    # df = df.dropna(subset = data_vars_list, how='any')
     # plotting.scatter_matrix(df[data_vars_list])
 
-    df_new    = simulate_02_missing_F2divTISO_vals(df)  # substitute missing vals in column >F2divTISO<
+    df_new    = simulate_missing_F2divTISO_vals(df)  # substitute missing vals in column >F2divTISO<
     # remove rows with NaN in selected (!) columns only: >subset = data_vars_list<
     df_new = df_new.dropna(subset = data_vars_list, how='any')
     df_new.to_csv(fn_out)   # write csv-file
-    # print df_new.shape
-    # pprint(df_new.count())
+    # print df_new.shape, df_new.count()
+    #
     # http://chrisalbon.com/python/seaborn_color_palettes.html
     # !! see colors at: http://xkcd.com/color/rgb/
-    # current_palette = seaborn.color_palette(paired)
     colors = ["windows blue", "faded green", "amber", "greyish", "dusty purple"]
     current_palette = seaborn.xkcd_palette(colors)
     current_palette = seaborn.color_palette("Paired")
