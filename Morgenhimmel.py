@@ -1006,10 +1006,12 @@ def mark_image_corners(dwg):
     upper_right_corner = (x_img_dim - test_r, test_r)
     lower_left_corner  = (test_r, y_img_dim - test_r)
     lower_right_corner = (x_img_dim - test_r, y_img_dim - test_r)
-    dwg.add(dwg.circle(center = upper_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
-    dwg.add(dwg.circle(center = upper_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
-    dwg.add(dwg.circle(center = lower_left_corner,  r=test_r, stroke='none', fill='white', opacity='1.0'))
-    dwg.add(dwg.circle(center = lower_right_corner, r=test_r, stroke='none', fill='white', opacity='1.0'))
+    # color = 'purple'
+    color = 'white'
+    dwg.add(dwg.circle(center = upper_left_corner,  r=test_r, stroke='none', fill=color, opacity='1.0'))
+    dwg.add(dwg.circle(center = upper_right_corner, r=test_r, stroke='none', fill=color, opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_left_corner,  r=test_r, stroke='none', fill=color, opacity='1.0'))
+    dwg.add(dwg.circle(center = lower_right_corner, r=test_r, stroke='none', fill=color, opacity='1.0'))
     return dwg
 
 def mark_pict_corners(dwg, ul, ur, ll, lr):
@@ -1494,10 +1496,8 @@ def plot_via_svg_pict_edges(dwg):
             ll = (pict.x_coord, (int (pict.y_coord) + y_pict))
             lr = (int (pict.x_coord) + x_pict, (int (pict.y_coord) + y_pict))
             mark_pict_corners(dwg, ul, ur, ll, lr)
-            if not quiet:
-                print
-    if not quiet:
-        print '>>> plot_via_svg_pict_edges(dwg) END'
+            if not quiet: print
+    if not quiet: print '>>> plot_via_svg_pict_edges(dwg) END'
     return dwg
 
 
@@ -1523,6 +1523,7 @@ def plot_data_via_svg(data_fields):
 
     svg_dimensions = x_img_dim, y_img_dim
     path_fn = make_result_path_fn('results', act_date_time_str() + 'img_data_points.svg')  # fn von data points file
+    path_fn = make_result_path_fn('results', '_img_corners.svg')  # fn von data points file
     # initialize svg canvas 'dwg':
     dwg = svgwrite.Drawing(path_fn, (svg_dimensions), profile='basic', debug=True)
     # x_bias  global
@@ -1538,6 +1539,7 @@ def plot_data_via_svg(data_fields):
     #
     # Forcing svgwrite to set dimensions to svg_size_width x svg_size_height:
     dwg = mark_image_corners(dwg)
+    # dwg.save() ; return
     # Plot pict edges
     dwg = plot_via_svg_pict_edges(dwg)
     # Plot lines
@@ -1573,10 +1575,8 @@ def simulate_missing_F2divTISO_vals(df):
     F2div_cpy      = df['F2divTISO_x']          # get column 'F2divTISO_x'
     F2div_x_not_nan= F2div_cpy.dropna()         # get only vals <> nan
     F2div_x_list   = F2div_x_not_nan.tolist()   # convert column to list
-
-
     #
-    print df.shape, df.columns, df.count()
+    # print df.shape, df.columns, df.count()
     len_df = len(df.index)
     # make new series (== column) with length of df.
     cnt = 0
@@ -1593,7 +1593,6 @@ def simulate_missing_F2divTISO_vals(df):
         df_new.set_value(cnt, 'F2divTISO_x', item_x)  # !!! first y-axis (==cnt), then x-axis (== 'F2divTISO')
         df_new.set_value(cnt, 'F2divTISO_y', item_y)  # !!! first y-axis (==cnt), then x-axis (== 'F2divTISO')
         cnt += 1
-
     return df_new
 
 
@@ -1615,7 +1614,6 @@ def statistics():
     #                   'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
     # data_vars_list = [             'av_gray', 'temperature', 'humidity',
     #                   'sky_KW_J', 'global_KW_J', 'atmo_KW_J', 'sun_zenit']
-
     # df = df.dropna(subset = data_vars_list, how='any')
     # plotting.scatter_matrix(df[data_vars_list])
 
@@ -1627,9 +1625,9 @@ def statistics():
     #
     # http://chrisalbon.com/python/seaborn_color_palettes.html
     # !! see colors at: http://xkcd.com/color/rgb/
-    colors = ["windows blue", "faded green", "amber", "greyish", "dusty purple"]
+    colors = ["faded green", "amber", "windows blue", "greyish", "dusty purple"]
     current_palette = seaborn.xkcd_palette(colors)
-    current_palette = seaborn.color_palette("Paired")
+    # current_palette = seaborn.color_palette("Paired")
     seaborn.set_palette(current_palette)
     seaborn.pairplot(df_new, vars = data_vars_list, hue="Model", kind='reg')
     plt.show()
